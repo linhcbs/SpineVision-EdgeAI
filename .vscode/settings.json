@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "/home/linhcbs/anaconda3/envs/ceoai2026/bin/python",
+  "python.analysis.extraPaths": [
+    "/home/linhcbs/anaconda3/envs/ceoai2026/lib/python3.10/site-packages"
+  ],
+  "python.analysis.indexing": true
+}
