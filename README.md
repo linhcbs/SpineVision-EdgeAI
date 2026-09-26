@@ -1,6 +1,6 @@
 # SpineVision-EdgeAI: Human Pose Estimation Pipeline & Benchmark
 
-Dự án triển khai, trực quan hóa và đo lường hiệu năng chuyên sâu các mô hình **Human Pose Estimation (HPE)** hàng đầu trên môi trường Edge AI / CPU / GPU (`ceoai2026`).
+Dự án triển khai, trực quan hóa và đo lường hiệu năng chuyên sâu các mô hình **Human Pose Estimation (HPE)** hàng đầu trên môi trường Edge AI / CPU / GPU.
 
 ---
 
@@ -97,3 +97,22 @@ conda run -n ceoai2026 python benchmarks/models/yolo26x_pose.py --cam 1
 ```bash
 conda run -n ceoai2026 python benchmarks/train_yolo_pose.py --model yolo26n_pose --dataset coco8-pose.yaml --epochs 50
 ```
+
+### 4. Chạy Phân Tích Tư Thế Thời Gian Thực (Ergonomic Posture Analysis)
+```bash
+# Chạy demo webcam với MediaPipe Pose + One-Euro Filter + HUD công thái học:
+conda run -n ceoai2026 python demo_posture_webcam.py --camera 0
+
+# Phím tắt trong khi chạy:
+# [C]: Bắt đầu Auto-Calibration cá nhân hóa (ngồi thẳng 3 giây)
+# [R]: Reset Calibration về ngưỡng lâm sàng mặc định
+# [S]: Bật/Tắt bộ lọc One-Euro Filter làm mượt Landmark
+# [W]: Bật/Tắt lớp hiển thị phát hiện mặt bàn & màn hình
+# [Q] / [ESC]: Thoát
+```
+
+### 5. Chạy Kiểm Thử Tự Động (Unit & Integration Tests)
+```bash
+conda run -n ceoai2026 python -m pytest tests/test_posture_analyzer.py -v
+```
+

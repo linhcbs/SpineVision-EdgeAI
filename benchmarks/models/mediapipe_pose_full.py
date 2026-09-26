@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 import psutil
 import mediapipe as mp
+# pyrefly: ignore [missing-import]
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision
 from mediapipe.tasks.python.vision import PoseLandmarksConnections

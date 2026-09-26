@@ -56,8 +56,18 @@ COCO_BONE_COLORS = [
 def load_config(model_key=None, config_path=None):
     """Load config from pose_models_config.json with optional model_key slice."""
     if config_path is None:
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        config_path = os.path.join(base_dir, "configs", "pose_models_config.json")
+        benchmarks_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        root_dir = os.path.dirname(benchmarks_dir)
+        candidate_paths = [
+            os.path.join(root_dir, "configs", "pose_models_config.json"),
+            os.path.join(benchmarks_dir, "configs", "pose_models_config.json"),
+        ]
+        for p in candidate_paths:
+            if os.path.exists(p):
+                config_path = p
+                break
+        if config_path is None:
+            config_path = candidate_paths[0]
     
     if os.path.exists(config_path):
         with open(config_path, "r", encoding="utf-8") as f:
@@ -66,6 +76,7 @@ def load_config(model_key=None, config_path=None):
                 return full_cfg["models"][model_key], full_cfg.get("global_settings", {})
             return full_cfg, full_cfg.get("global_settings", {})
     return {}, {}
+
 
 
 def resolve_weight_path(filename):
