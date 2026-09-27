@@ -271,10 +271,10 @@ def draw_posture_hud(
         y_cursor += 28
 
     # 2. Shoulder Level Angle (Scaled 180° - 90°)
-    if not sh_enabled or view_mode == ViewMode.PROFILE:
+    if not sh_enabled:
         cv2.putText(frame, "Shoulder Level", (panel_x + 10, y_cursor),
                     font_small, 0.40, COLOR_TEXT_DIM, 1, cv2.LINE_AA)
-        cv2.putText(frame, "N/A (Side View)", (panel_x + 150, y_cursor),
+        cv2.putText(frame, "N/A (Disabled)", (panel_x + 150, y_cursor),
                     font_small, 0.40, COLOR_TEXT_DIM, 1, cv2.LINE_AA)
         bar_x1 = panel_x + 10
         bar_x2 = w - 15
@@ -406,8 +406,8 @@ def _draw_angle_arcs(
                     (label_x, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.35, color, 1, cv2.LINE_AA)
 
     # --- Shoulder Tilt Line (Scaled 180° - 90°) ---
-    # Only draw when shoulder tilt is enabled (skip in Profile view)
-    if sh_enabled and view_mode != ViewMode.PROFILE:
+    # Only draw when shoulder tilt is enabled
+    if sh_enabled:
         l_shoulder = kps.get("left_shoulder")
         r_shoulder = kps.get("right_shoulder")
         if l_shoulder is not None and r_shoulder is not None:
@@ -415,19 +415,19 @@ def _draw_angle_arcs(
             lx, ly = int(l_shoulder.x), int(l_shoulder.y)
             rx, ry = int(r_shoulder.x), int(r_shoulder.y)
 
-        # Extend shoulder line slightly
-        cv2.line(frame, (lx - 10, ly), (rx + 10, ry), color, 2, cv2.LINE_AA)
+            # Extend shoulder line slightly
+            cv2.line(frame, (lx - 10, ly), (rx + 10, ry), color, 2, cv2.LINE_AA)
 
-        # Draw horizontal reference
-        mid_x = (lx + rx) // 2
-        mid_y = (ly + ry) // 2
-        cv2.line(frame, (mid_x - 50, mid_y), (mid_x + 50, mid_y),
-                 (100, 100, 100), 1, cv2.LINE_AA)
+            # Draw horizontal reference
+            mid_x = (lx + rx) // 2
+            mid_y = (ly + ry) // 2
+            cv2.line(frame, (mid_x - 50, mid_y), (mid_x + 50, mid_y),
+                     (100, 100, 100), 1, cv2.LINE_AA)
 
-        # Shoulder Level label (scaled 180° - 90°)
-        cv2.putText(frame, f"Shoulder: {metrics.shoulder_level_deg:.1f} deg",
-                    (mid_x + 10, mid_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.33,
-                    color, 1, cv2.LINE_AA)
+            # Shoulder Level label (scaled 180° - 90°)
+            cv2.putText(frame, f"Shoulder: {metrics.shoulder_level_deg:.1f} deg",
+                        (mid_x + 10, mid_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.33,
+                        color, 1, cv2.LINE_AA)
 
     # --- Trunk Angle: spine line from mid-shoulder to mid-hip ---
     mid_hip = kps.get_midpoint("left_hip", "right_hip")

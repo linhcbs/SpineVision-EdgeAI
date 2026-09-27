@@ -336,13 +336,12 @@ def test_adaptive_view_modes_and_hysteresis():
     bad_front_state = classifier.classify(bad_front_metrics)
     assert PostureStatus.FORWARD_HEAD in bad_front_state.violations
 
-    # 2. Profile View Test (Normal clinical CVA is 50-60°, shoulder tilt bypassed)
+    # 2. Profile View Test (Normal clinical CVA is 50-60°, shoulder tilt enabled)
     profile_metrics = PostureMetrics(
-        neck_cva_deg=55.0, shoulder_tilt_deg=35.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
+        neck_cva_deg=55.0, shoulder_tilt_deg=2.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
         view_mode=ViewMode.PROFILE, is_valid=True
     )
     profile_state = classifier.classify(profile_metrics)
-    # Even though shoulder tilt is 35° (which would fail in frontal), in Profile mode it is bypassed!
     assert PostureStatus.SHOULDER_TILTED not in profile_state.violations
     # CVA 55° is safe under clinical profile thresholds (normal_min = 52.0)
     assert PostureStatus.FORWARD_HEAD not in profile_state.violations
@@ -350,19 +349,27 @@ def test_adaptive_view_modes_and_hysteresis():
 
     # Profile view severe forward head (CVA < 40°)
     severe_profile_metrics = PostureMetrics(
-        neck_cva_deg=38.0, shoulder_tilt_deg=35.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
+        neck_cva_deg=38.0, shoulder_tilt_deg=2.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
         view_mode=ViewMode.PROFILE, is_valid=True
     )
     severe_profile_state = classifier.classify(severe_profile_metrics)
     assert PostureStatus.FORWARD_HEAD in severe_profile_state.violations
 
-    # 3. Oblique View Test (Widened thresholds)
+    # Profile view with severe shoulder tilt (> 8.0°) triggers SHOULDER_TILTED
+    tilted_profile_metrics = PostureMetrics(
+        neck_cva_deg=55.0, shoulder_tilt_deg=10.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
+        view_mode=ViewMode.PROFILE, is_valid=True
+    )
+    tilted_profile_state = classifier.classify(tilted_profile_metrics)
+    assert PostureStatus.SHOULDER_TILTED in tilted_profile_state.violations
+
+    # 3. Oblique View Test (Normal posture within thresholds)
     oblique_metrics = PostureMetrics(
-        neck_cva_deg=68.0, shoulder_tilt_deg=10.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
+        neck_cva_deg=68.0, shoulder_tilt_deg=4.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
         view_mode=ViewMode.OBLIQUE, is_valid=True
     )
     oblique_state = classifier.classify(oblique_metrics)
-    # Tilt 10° is permitted in oblique mode (normal_max = 15.0°)
+    # Tilt 4.0° is permitted in oblique mode (normal_max = 5.0°)
     assert PostureStatus.SHOULDER_TILTED not in oblique_state.violations
     assert oblique_state.status == PostureStatus.GOOD
 

@@ -25,7 +25,7 @@
     }
   },
   "keypoints": {
-    "min_confidence": 0.3
+    "min_confidence": 0.2
   },
   "metrics": {
     "neck_cva": {
@@ -110,13 +110,13 @@
       },
       "shoulder_tilt": {
         "enabled": true,
-        "normal_min": 165.0,
-        "warning_min": 158.0,
-        "severe_below": 158.0,
+        "normal_min": 175.0,
+        "warning_min": 172.0,
+        "severe_below": 172.0,
         "raw_tilt_thresholds": {
-          "normal_max": 15.0,
-          "warning_max": 22.0,
-          "severe_above": 22.0
+          "normal_max": 5.0,
+          "warning_max": 8.0,
+          "severe_above": 8.0
         }
       }
     },
@@ -128,13 +128,13 @@
       },
       "shoulder_tilt": {
         "enabled": false,
-        "normal_min": 150.0,
-        "warning_min": 140.0,
-        "severe_below": 140.0,
+        "normal_min": 175.0,
+        "warning_min": 172.0,
+        "severe_below": 172.0,
         "raw_tilt_thresholds": {
-          "normal_max": 30.0,
-          "warning_max": 40.0,
-          "severe_above": 40.0
+          "normal_max": 5.0,
+          "warning_max": 8.0,
+          "severe_above": 8.0
         }
       }
     }
