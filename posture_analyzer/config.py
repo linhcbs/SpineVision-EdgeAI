@@ -197,6 +197,15 @@ def get_default_config() -> Dict[str, Any]:
             "screen_aspect_ratio": 0.5625,
             "opacity": 0.3,
         },
+        "screen_detection": {
+            "enabled": True,
+            "model_path": "benchmarks/weights/yolo11n.pt",
+            "max_devices": 3,
+            "min_confidence": 0.40,
+            "iou_threshold": 0.50,
+            "draw_boxes": True,
+            "box_opacity": 0.18,
+        },
         "visualization_hud": {
             "language": "en",
             "show_ram": True,

@@ -27,6 +27,8 @@ from .types import (
     KeypointFormat,
     UnifiedKeypoints,
     NormalizedKeypoint,
+    DetectedDevice,
+    DeviceType,
 )
 from .filter_utils import OneEuroFilter, LandmarkSmoother
 from .posture_metrics import PostureMetricsCalculator
@@ -46,6 +48,8 @@ __all__ = [
     "KeypointFormat",
     "UnifiedKeypoints",
     "NormalizedKeypoint",
+    "DetectedDevice",
+    "DeviceType",
     "OneEuroFilter",
     "LandmarkSmoother",
     "PostureMetricsCalculator",

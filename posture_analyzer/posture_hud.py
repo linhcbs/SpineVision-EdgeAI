@@ -16,7 +16,7 @@ Design:
 import cv2
 import math
 import numpy as np
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 try:
     import psutil
@@ -32,6 +32,8 @@ from .types import (
     ViewMode,
     UnifiedKeypoints,
     NormalizedKeypoint,
+    DetectedDevice,
+    DeviceType,
 )
 from .config import get_posture_config
 
@@ -99,6 +101,7 @@ def draw_posture_hud(
     is_calibrating: bool = False,
     calib_progress: float = 0.0,
     panel_width: int = 310,
+    detected_devices: Optional[List[DetectedDevice]] = None,
 ):
     """
     Draw the ergonomic posture analysis HUD on the right side of the frame in English.
@@ -110,6 +113,7 @@ def draw_posture_hud(
         is_calibrating: Whether calibration is in progress.
         calib_progress: Calibration progress (0.0 - 1.0).
         panel_width: Width of the right-side metrics panel.
+        detected_devices: Optional list of DetectedDevice for multi-screen HUD section.
     """
     h, w = frame.shape[:2]
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -118,9 +122,18 @@ def draw_posture_hud(
     panel_x = w - panel_width - 10
     panel_y = 8
 
+    # Resolve device list from arg or state
+    if detected_devices is None:
+        detected_devices = getattr(state, 'detected_devices', [])
+
+    # Dynamic panel height based on device count
+    n_dev = len(detected_devices)
+    extra_dev_rows = max(0, n_dev)  # 1 header + n rows
+    panel_height = 385 + extra_dev_rows * 22 + (22 if n_dev > 0 else 0)
+    if is_calibrating:
+        panel_height += 30
     # === Semi-transparent background panel ===
     overlay = frame.copy()
-    panel_height = 385 if not is_calibrating else 415
     cv2.rectangle(overlay, (panel_x, panel_y), (w - 5, panel_y + panel_height), COLOR_PANEL_BG, -1)
     cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
 
@@ -294,7 +307,7 @@ def draw_posture_hud(
         good_range=(0.0, tr_good), warn_range=(0.0, tr_warn), invert=False,
     )
 
-    # 4. Eye to Screen Distance
+    # 4. Eye to Screen Distance (primary / webcam)
     if metrics.eye_distance_cm > 0:
         draw_metric_row(
             "Eye - Screen", metrics.eye_distance_cm, "cm",
@@ -304,6 +317,42 @@ def draw_posture_hud(
         cv2.putText(frame, "Eye - Screen: N/A", (panel_x + 10, y_cursor),
                     font_small, 0.40, COLOR_TEXT_DIM, 1, cv2.LINE_AA)
         y_cursor += 28
+
+    # 4b. Multi-device distances section
+    if detected_devices:
+        # Try to import color helper; fall back to gray
+        try:
+            from .screen_detector import get_device_color
+        except Exception:
+            def get_device_color(_t):
+                return (160, 160, 160)
+
+        # Section header
+        cv2.putText(frame, "Devices Detected:", (panel_x + 10, y_cursor),
+                    font_small, 0.37, COLOR_TEXT_DIM, 1, cv2.LINE_AA)
+        y_cursor += 18
+
+        for dev in detected_devices:
+            color = get_device_color(dev.device_type)
+            dist_str = f"{dev.distance_cm:.0f} cm" if dev.distance_cm > 0 else "N/A"
+            # Status color based on distance
+            if dev.distance_cm > 0:
+                if dev.distance_cm >= scr_safe:
+                    dist_color = COLOR_GOOD
+                elif dev.distance_cm >= scr_warn:
+                    dist_color = COLOR_WARNING
+                else:
+                    dist_color = COLOR_CRITICAL
+            else:
+                dist_color = COLOR_TEXT_DIM
+
+            # Colored dot indicating device type
+            cv2.circle(frame, (panel_x + 16, y_cursor - 4), 4, color, -1, cv2.LINE_AA)
+            cv2.putText(frame, dev.label, (panel_x + 26, y_cursor),
+                        font_small, 0.37, color, 1, cv2.LINE_AA)
+            cv2.putText(frame, dist_str, (panel_x + 160, y_cursor),
+                        font_small, 0.40, dist_color, 1, cv2.LINE_AA)
+            y_cursor += 18
 
     # 5. Eye to Desk Distance
     if metrics.eye_to_desk_cm > 0:

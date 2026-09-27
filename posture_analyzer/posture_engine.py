@@ -15,7 +15,7 @@ Supports both MediaPipe Pose (33 landmarks) and COCO formats (MoveNet, YOLO-Pose
 
 import time
 import numpy as np
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, List
 
 from .types import (
     UnifiedKeypoints,
@@ -23,6 +23,7 @@ from .types import (
     PostureStatus,
     CalibrationData,
     KeypointFormat,
+    DetectedDevice,
     convert_mediapipe_to_unified,
     convert_coco_to_unified,
 )
@@ -32,6 +33,7 @@ from .distance_estimator import DistanceEstimator
 from .calibrator import PostureCalibrator
 from .posture_classifier import PostureClassifier
 from .workspace_detector import WorkspaceDetector
+from .screen_detector import ScreenDetector
 from .posture_hud import draw_posture_hud
 from .config import get_posture_config, load_posture_config
 
@@ -55,6 +57,7 @@ class PostureAnalysisEngine:
         target_calibration_samples: Optional[int] = None,
         calibration_distance_cm: Optional[float] = None,
         enable_workspace_detection: Optional[bool] = None,
+        enable_screen_detection: Optional[bool] = None,
         config_path: Optional[str] = None,
     ):
         if config_path is not None:
@@ -69,6 +72,8 @@ class PostureAnalysisEngine:
 
         self.use_smoothing = use_smoothing if use_smoothing is not None else smooth_cfg.get("enabled", True)
         self.enable_workspace_detection = enable_workspace_detection if enable_workspace_detection is not None else ws_cfg.get("enabled", True)
+        sd_cfg = cfg.get("screen_detection", {})
+        self.enable_screen_detection = enable_screen_detection if enable_screen_detection is not None else sd_cfg.get("enabled", True)
         self.hud_panel_width = hud_cfg.get("panel_width", 310)
 
         # 1. Landmark Smoother
@@ -100,6 +105,9 @@ class PostureAnalysisEngine:
         # 6. Workspace Detector
         self.workspace_detector = WorkspaceDetector()
 
+        # 7. Screen / Device Detector (YOLO11n)
+        self.screen_detector = ScreenDetector()
+
     # --------------------------------------------------------------------------
     # Core Processing Pipeline
     # --------------------------------------------------------------------------
@@ -108,6 +116,7 @@ class PostureAnalysisEngine:
         self,
         kps: UnifiedKeypoints,
         timestamp_s: Optional[float] = None,
+        frame: Optional[np.ndarray] = None,
     ) -> PostureState:
         """
         Process a single frame's unified keypoints through the full analysis pipeline.
@@ -115,6 +124,8 @@ class PostureAnalysisEngine:
         Args:
             kps: UnifiedKeypoints object with normalized pixel coordinates.
             timestamp_s: Timestamp in seconds (float). If None, uses current time.
+            frame: Optional BGR video frame — required for YOLO screen detection.
+                   If None, screen detection will compute webcam distance only (heuristic).
 
         Returns:
             PostureState containing computed metrics, classification, and workspace details.
@@ -145,20 +156,44 @@ class PostureAnalysisEngine:
         # 4. Compute ergonomic posture metrics (CVA, Shoulder Tilt / Level, Trunk Angle)
         metrics = self.metrics_calc.compute_all(kps)
 
-        # 5. Estimate eye-to-screen distance
+        # 5. Estimate eye-to-screen distance (primary: webcam / IPD-based)
         metrics.eye_distance_cm = self.distance_estimator.estimate_distance(kps)
 
         # 6. Estimate eye-to-desk distance
         metrics.eye_to_desk_cm = self.distance_estimator.estimate_eye_to_desk(kps, desk_y)
 
-        # 7. Classify posture state (absolute or relative to calibration)
+        # 7. Multi-device screen detection (YOLO11n)
+        detected_devices = []
+        if self.enable_screen_detection:
+            # Sync focal length from DistanceEstimator if calibrated
+            if self.distance_estimator.is_calibrated:
+                self.screen_detector.focal_length_px = self.distance_estimator.focal_length_px
+            # Use the actual BGR frame for YOLO; fall back to blank if not provided
+            detect_frame = frame if frame is not None else np.zeros(
+                (kps.frame_height, kps.frame_width, 3), dtype=np.uint8
+            )
+            detected_devices = self.screen_detector.detect(
+                frame=detect_frame,
+                kps=kps,
+                view_mode=metrics.view_mode,
+            )
+            metrics.device_distances = detected_devices
+            # Keep eye_distance_cm in sync with webcam entry for backwards compat
+            from .types import DeviceType
+            for dev in detected_devices:
+                if dev.device_type == DeviceType.WEBCAM and dev.distance_cm > 0:
+                    metrics.eye_distance_cm = dev.distance_cm
+                    break
+
+        # 8. Classify posture state (absolute or relative to calibration)
         calibration_data = self.calibrator.calibration if self.calibrator.is_calibrated else None
         state = self.classifier.classify(metrics, calibration=calibration_data)
 
-        # 8. Enrich state
+        # 9. Enrich state
         state.desk_line_y = desk_y
         state.screen_region = screen_region
         state.timestamp_ms = timestamp_s * 1000.0
+        state.detected_devices = detected_devices
 
         return state
 
@@ -169,6 +204,7 @@ class PostureAnalysisEngine:
         frame_width: int,
         frame_height: int,
         timestamp_s: Optional[float] = None,
+        frame: Optional[np.ndarray] = None,
     ) -> Tuple[PostureState, UnifiedKeypoints]:
         """
         Process MediaPipe Pose landmarks.
@@ -178,12 +214,13 @@ class PostureAnalysisEngine:
             frame_width: Width of the input frame.
             frame_height: Height of the input frame.
             timestamp_s: Optional timestamp in seconds.
+            frame: Optional BGR video frame for YOLO screen detection.
 
         Returns:
             Tuple of (PostureState, UnifiedKeypoints).
         """
         kps = convert_mediapipe_to_unified(landmarks, frame_width, frame_height)
-        state = self.process_keypoints(kps, timestamp_s=timestamp_s)
+        state = self.process_keypoints(kps, timestamp_s=timestamp_s, frame=frame)
         return state, kps
 
     def process_coco(
@@ -254,6 +291,10 @@ class PostureAnalysisEngine:
                 screen_region=state.screen_region,
             )
 
+        # Draw YOLO device detection boxes (phones, laptops, etc.)
+        if self.enable_screen_detection and state.detected_devices:
+            self.screen_detector.draw_devices(frame, state.detected_devices)
+
         # Draw posture HUD panel and angle arcs
         draw_posture_hud(
             frame=frame,
@@ -262,6 +303,7 @@ class PostureAnalysisEngine:
             is_calibrating=self.calibrator.is_calibrating,
             calib_progress=self.calibrator.progress,
             panel_width=panel_w,
+            detected_devices=state.detected_devices,
         )
 
         return frame

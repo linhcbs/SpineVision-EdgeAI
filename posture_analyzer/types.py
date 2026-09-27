@@ -9,6 +9,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 
+
+
 class KeypointFormat(Enum):
     """Supported keypoint format standards."""
     MEDIAPIPE_33 = "mediapipe_33"   # 33 landmarks with (x, y, z, visibility)
@@ -33,6 +35,29 @@ class AlertLevel(Enum):
     MILD = 1          # Mild reminder (visual overlay)
     WARNING = 2       # Warning (caution indicator)
     CRITICAL = 3      # Severe violation
+
+
+class DeviceType(Enum):
+    """Type of detected electronic screen device."""
+    WEBCAM      = "webcam"     # The monitoring webcam itself (always present)
+    LAPTOP      = "laptop"     # Laptop / notebook screen
+    PHONE       = "phone"      # Smartphone
+    TABLET      = "tablet"     # Tablet / iPad
+    MONITOR     = "monitor"    # External desktop monitor
+    TV          = "tv"         # Television
+    UNKNOWN     = "unknown"    # Detected but type unclear
+
+
+@dataclass
+class DetectedDevice:
+    """A single detected electronic-screen device in the current frame."""
+    device_type: DeviceType = DeviceType.UNKNOWN
+    bbox: Optional[Tuple[int, int, int, int]] = None  # (x1, y1, x2, y2) pixels, None = webcam
+    center: Tuple[float, float] = field(default_factory=lambda: (0.0, 0.0))  # (cx, cy) pixels
+    confidence: float = 1.0      # Detection confidence [0-1]
+    distance_cm: float = -1.0    # Eye-to-device distance in cm, -1 = not computable
+    label: str = ""              # Display label, e.g. "Phone #1", "Webcam"
+    source: str = "yolo"         # Detection source: 'yolo' | 'heuristic' | 'fixed'
 
 
 class ViewMode(Enum):
@@ -128,11 +153,12 @@ class PostureMetrics:
     shoulder_tilt_deg: float = 0.0         # Raw shoulder tilt deviation (degrees)
     shoulder_level_deg: float = 180.0      # Scaled shoulder angle [180° = level, 90° = vertical]
     trunk_angle_deg: float = 0.0           # Trunk / Spine Slump Angle (degrees)
-    eye_distance_cm: float = -1.0          # Eye-to-Screen distance (cm), -1 = unavailable
+    eye_distance_cm: float = -1.0          # Eye-to-Screen distance (cm), -1 = unavailable (primary / webcam)
     eye_to_desk_cm: float = -1.0           # Eye-to-Desk distance (cm), -1 = unavailable
     yaw_deg: float = 0.0                   # Estimated torso/view yaw angle (degrees)
     view_mode: ViewMode = ViewMode.FRONTAL # Viewpoint classification (FRONTAL, OBLIQUE, PROFILE)
     is_valid: bool = False                 # Whether enough keypoints were visible for computation
+    device_distances: List["DetectedDevice"] = field(default_factory=list)  # Per-device distances
 
 
 @dataclass
@@ -166,6 +192,9 @@ class PostureState:
     # Workspace detection results
     desk_line_y: int = -1                  # Detected desk surface y-coordinate (-1 = not detected)
     screen_region: Optional[Tuple[int, int, int, int]] = None  # (x1, y1, x2, y2) of detected screen
+
+    # Multi-device screen detection results
+    detected_devices: List["DetectedDevice"] = field(default_factory=list)  # All screens detected this frame
 
 
 def convert_mediapipe_to_unified(landmarks, frame_width: int, frame_height: int) -> UnifiedKeypoints:

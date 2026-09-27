@@ -159,6 +159,7 @@ def main():
                     frame_width=w,
                     frame_height=h,
                     timestamp_s=time.time(),
+                    frame=frame,
                 )
 
                 # Render Ergonomic HUD & angle arcs

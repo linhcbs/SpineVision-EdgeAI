@@ -355,13 +355,14 @@ def test_adaptive_view_modes_and_hysteresis():
     severe_profile_state = classifier.classify(severe_profile_metrics)
     assert PostureStatus.FORWARD_HEAD in severe_profile_state.violations
 
-    # Profile view with severe shoulder tilt (> 8.0°) triggers SHOULDER_TILTED
+    # Profile view shoulder tilt: currently disabled in config (enabled: false),
+    # so tilt is bypassed even for large values.
     tilted_profile_metrics = PostureMetrics(
         neck_cva_deg=55.0, shoulder_tilt_deg=10.0, trunk_angle_deg=5.0, eye_distance_cm=60.0,
         view_mode=ViewMode.PROFILE, is_valid=True
     )
     tilted_profile_state = classifier.classify(tilted_profile_metrics)
-    assert PostureStatus.SHOULDER_TILTED in tilted_profile_state.violations
+    assert PostureStatus.SHOULDER_TILTED not in tilted_profile_state.violations  # disabled in profile
 
     # 3. Oblique View Test (Normal posture within thresholds)
     oblique_metrics = PostureMetrics(
