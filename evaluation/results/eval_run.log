@@ -1,0 +1,190 @@
+[09:58:55] INFO  ======================================================================
+[09:58:55] INFO  SpineVision EdgeAI -- HPE Posture Classification Evaluation
+[09:58:55] INFO    Run at : 2026-09-28 09:58:55
+[09:58:55] INFO    Models : ['mediapipe_pose_lite', 'mediapipe_pose_full', 'movenet_lightning', 'movenet_thunder', 'yolo26n_pose']
+[09:58:55] INFO    Splits : ['train', 'valid', 'test']
+[09:58:55] INFO    Dataset: /media/linhcbs/DATA/NCKH/NCKH HÈ/DATA/sitting posture.v4-sitting_posture_4keypoint.coco
+[09:58:55] INFO    Output : /media/linhcbs/DATA/NCKH/NCKH HÈ/code/evaluation/results
+[09:58:55] INFO  ======================================================================
+[09:58:55] INFO    Loaded train: 573 images -- {'Bad': 366, 'Good': 207}
+[09:58:55] INFO    Loaded valid: 55 images -- {'Bad': 37, 'Good': 18}
+[09:58:55] INFO    Loaded test: 27 images -- {'Bad': 17, 'Good': 10}
+[09:58:55] INFO  
+============================================================
+[09:58:55] INFO  Evaluating: MediaPipe Pose LITE
+[09:58:55] INFO  ============================================================
+[09:58:55] INFO  Loading HPE model: mediapipe_pose_lite
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+WARNING: Logging before InitGoogle() is written to STDERR
+W0000 00:00:1790564336.416551  590312 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1790564336.460539  590313 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+[09:58:56] INFO    -> Loaded in 0.91s
+[09:58:56] INFO  
+  -- Split: TRAIN --
+[09:58:56] INFO    [train] Evaluating 573 images...
+W0000 00:00:1790564336.556727  590311 landmark_projection_calculator.cc:81] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE_DIMENSIONS or use PROJECTION_MATRIX.
+[09:58:57] INFO      [50/573] bad_posture_20241013_221218_png.rf.e5217e924397ca5e2727880291313b91.jpg: GT=Bad, Pred=Bad, lat=21.4ms
+[09:58:59] INFO      [100/573] good_posture_20241012_172239_png.rf.fe1d25262987db371a4c9db72053e1f6.jpg: GT=Bad, Pred=Bad, lat=20.1ms
+[09:59:00] INFO      [150/573] bad_posture_20241013_220642_png.rf.1823a120268980c62c40582e0092cfd4.jpg: GT=Bad, Pred=Bad, lat=20.6ms
+[09:59:01] INFO      [200/573] bad_posture_20241021_141725_png.rf.2f5d2755b7b58cdab695a3b597766de2.jpg: GT=Bad, Pred=Bad, lat=20.9ms
+[09:59:03] INFO      [250/573] good_posture_20241021_142330_png.rf.45f44a5ce97e9ae414b99bf0f7d294f7.jpg: GT=Good, Pred=Good, lat=18.4ms
+[09:59:04] INFO      [300/573] good_posture_20241021_180549_png.rf.5d1e28c84ced36cab22c2e986b16380c.jpg: GT=Good, Pred=Good, lat=15.8ms
+[09:59:05] INFO      [350/573] bad_posture_20241021_142111_png.rf.71eb50bb399a72995b18a75eea2b6792.jpg: GT=Bad, Pred=Bad, lat=12.6ms
+[09:59:05] INFO      [400/573] good_posture_20241021_141630_png.rf.854284226e2e4d012111a9a31f0c0b07.jpg: GT=Good, Pred=Good, lat=12.4ms
+[09:59:06] INFO      [450/573] good_posture_20241013_222728_png.rf.9d58f269b9834e43da282c68a8030068.jpg: GT=Good, Pred=Good, lat=12.1ms
+[09:59:07] INFO      [500/573] good_posture_20241021_142053_png.rf.b09026b7069f9ebf8a2131fb83f6b063.jpg: GT=Good, Pred=Good, lat=12.9ms
+[09:59:08] INFO      [550/573] bad_posture_20241013_222754_png.rf.c9117d9014735cde9b3dc3e784877604.jpg: GT=Bad, Pred=Bad, lat=12.1ms
+[09:59:08] INFO    OK train: Acc=75.57% F1=80.28% Recall=77.87% Prec=82.85% Lat=16.64ms
+[09:59:08] INFO  
+  -- Split: VALID --
+[09:59:08] INFO    [valid] Evaluating 55 images...
+[09:59:09] INFO      [50/55] image_20241007_192301_jpg.rf.fa66c9b3bc5dce6eddbcd80cff3b46ab.jpg: GT=Bad, Pred=Good, lat=12.4ms
+[09:59:09] INFO    OK valid: Acc=63.64% F1=71.43% Recall=67.57% Prec=75.76% Lat=12.95ms
+[09:59:09] INFO  
+  -- Split: TEST --
+[09:59:09] INFO    [test] Evaluating 27 images...
+[09:59:10] INFO    OK test: Acc=77.78% F1=83.33% Recall=88.24% Prec=78.95% Lat=13.1ms
+[09:59:10] INFO  
+============================================================
+[09:59:10] INFO  Evaluating: MediaPipe Pose FULL
+[09:59:10] INFO  ============================================================
+[09:59:10] INFO  Loading HPE model: mediapipe_pose_full
+W0000 00:00:1790564350.366643  590337 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1790564350.397198  590337 inference_feedback_manager.cc:121] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+[09:59:10] INFO    -> Loaded in 0.09s
+[09:59:10] INFO  
+  -- Split: TRAIN --
+[09:59:10] INFO    [train] Evaluating 573 images...
+[09:59:11] INFO      [50/573] bad_posture_20241013_221218_png.rf.e5217e924397ca5e2727880291313b91.jpg: GT=Bad, Pred=Bad, lat=29.4ms
+[09:59:12] INFO      [100/573] good_posture_20241012_172239_png.rf.fe1d25262987db371a4c9db72053e1f6.jpg: GT=Bad, Pred=Bad, lat=18.5ms
+[09:59:13] INFO      [150/573] bad_posture_20241013_220642_png.rf.1823a120268980c62c40582e0092cfd4.jpg: GT=Bad, Pred=Bad, lat=20.5ms
+[09:59:14] INFO      [200/573] bad_posture_20241021_141725_png.rf.2f5d2755b7b58cdab695a3b597766de2.jpg: GT=Bad, Pred=Bad, lat=19.1ms
+[09:59:15] INFO      [250/573] good_posture_20241021_142330_png.rf.45f44a5ce97e9ae414b99bf0f7d294f7.jpg: GT=Good, Pred=Good, lat=18.3ms
+[09:59:16] INFO      [300/573] good_posture_20241021_180549_png.rf.5d1e28c84ced36cab22c2e986b16380c.jpg: GT=Good, Pred=Good, lat=18.1ms
+[09:59:17] INFO      [350/573] bad_posture_20241021_142111_png.rf.71eb50bb399a72995b18a75eea2b6792.jpg: GT=Bad, Pred=Bad, lat=18.7ms
+[09:59:19] INFO      [400/573] good_posture_20241021_141630_png.rf.854284226e2e4d012111a9a31f0c0b07.jpg: GT=Good, Pred=Bad, lat=19.6ms
+[09:59:20] INFO      [450/573] good_posture_20241013_222728_png.rf.9d58f269b9834e43da282c68a8030068.jpg: GT=Good, Pred=Good, lat=20.1ms
+[09:59:21] INFO      [500/573] good_posture_20241021_142053_png.rf.b09026b7069f9ebf8a2131fb83f6b063.jpg: GT=Good, Pred=Good, lat=19.1ms
+[09:59:22] INFO      [550/573] bad_posture_20241013_222754_png.rf.c9117d9014735cde9b3dc3e784877604.jpg: GT=Bad, Pred=Bad, lat=20.0ms
+[09:59:23] INFO    OK train: Acc=76.44% F1=80.00% Recall=73.77% Prec=87.38% Lat=19.51ms
+[09:59:23] INFO  
+  -- Split: VALID --
+[09:59:23] INFO    [valid] Evaluating 55 images...
+[09:59:24] INFO      [50/55] image_20241007_192301_jpg.rf.fa66c9b3bc5dce6eddbcd80cff3b46ab.jpg: GT=Bad, Pred=Good, lat=18.7ms
+[09:59:24] INFO    OK valid: Acc=67.27% F1=72.73% Recall=64.86% Prec=82.76% Lat=18.54ms
+[09:59:24] INFO  
+  -- Split: TEST --
+[09:59:24] INFO    [test] Evaluating 27 images...
+[09:59:24] INFO    OK test: Acc=77.78% F1=80.00% Recall=70.59% Prec=92.31% Lat=20.29ms
+[09:59:25] INFO  
+============================================================
+[09:59:25] INFO  Evaluating: MoveNet Lightning
+[09:59:25] INFO  ============================================================
+[09:59:25] INFO  Loading HPE model: movenet_lightning
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+[09:59:25] INFO    -> Loaded in 0.02s
+[09:59:25] INFO  
+  -- Split: TRAIN --
+[09:59:25] INFO    [train] Evaluating 573 images...
+[09:59:25] INFO      [50/573] bad_posture_20241013_221218_png.rf.e5217e924397ca5e2727880291313b91.jpg: GT=Bad, Pred=Bad, lat=8.3ms
+[09:59:26] INFO      [100/573] good_posture_20241012_172239_png.rf.fe1d25262987db371a4c9db72053e1f6.jpg: GT=Bad, Pred=Bad, lat=8.4ms
+[09:59:26] INFO      [150/573] bad_posture_20241013_220642_png.rf.1823a120268980c62c40582e0092cfd4.jpg: GT=Bad, Pred=Bad, lat=8.2ms
+[09:59:27] INFO      [200/573] bad_posture_20241021_141725_png.rf.2f5d2755b7b58cdab695a3b597766de2.jpg: GT=Bad, Pred=Bad, lat=7.7ms
+[09:59:27] INFO      [250/573] good_posture_20241021_142330_png.rf.45f44a5ce97e9ae414b99bf0f7d294f7.jpg: GT=Good, Pred=Bad, lat=7.4ms
+[09:59:28] INFO      [300/573] good_posture_20241021_180549_png.rf.5d1e28c84ced36cab22c2e986b16380c.jpg: GT=Good, Pred=Bad, lat=7.4ms
+[09:59:28] INFO      [350/573] bad_posture_20241021_142111_png.rf.71eb50bb399a72995b18a75eea2b6792.jpg: GT=Bad, Pred=Bad, lat=7.8ms
+[09:59:29] INFO      [400/573] good_posture_20241021_141630_png.rf.854284226e2e4d012111a9a31f0c0b07.jpg: GT=Good, Pred=Bad, lat=7.5ms
+[09:59:29] INFO      [450/573] good_posture_20241013_222728_png.rf.9d58f269b9834e43da282c68a8030068.jpg: GT=Good, Pred=Bad, lat=7.4ms
+[09:59:30] INFO      [500/573] good_posture_20241021_142053_png.rf.b09026b7069f9ebf8a2131fb83f6b063.jpg: GT=Good, Pred=Bad, lat=7.5ms
+[09:59:30] INFO      [550/573] bad_posture_20241013_222754_png.rf.c9117d9014735cde9b3dc3e784877604.jpg: GT=Bad, Pred=Bad, lat=7.4ms
+[09:59:30] INFO    OK train: Acc=67.02% F1=78.79% Recall=95.90% Prec=66.86% Lat=7.81ms
+[09:59:30] INFO  
+  -- Split: VALID --
+[09:59:30] INFO    [valid] Evaluating 55 images...
+[09:59:31] INFO      [50/55] image_20241007_192301_jpg.rf.fa66c9b3bc5dce6eddbcd80cff3b46ab.jpg: GT=Bad, Pred=Bad, lat=7.5ms
+[09:59:31] INFO    OK valid: Acc=67.27% F1=80.00% Recall=97.30% Prec=67.92% Lat=7.44ms
+[09:59:31] INFO  
+  -- Split: TEST --
+[09:59:31] INFO    [test] Evaluating 27 images...
+[09:59:31] INFO    OK test: Acc=62.96% F1=76.19% Recall=94.12% Prec=64.00% Lat=7.43ms
+[09:59:31] INFO  
+============================================================
+[09:59:31] INFO  Evaluating: MoveNet Thunder
+[09:59:31] INFO  ============================================================
+[09:59:31] INFO  Loading HPE model: movenet_thunder
+[09:59:31] INFO    -> Loaded in 0.07s
+[09:59:31] INFO  
+  -- Split: TRAIN --
+[09:59:31] INFO    [train] Evaluating 573 images...
+[09:59:33] INFO      [50/573] bad_posture_20241013_221218_png.rf.e5217e924397ca5e2727880291313b91.jpg: GT=Bad, Pred=Bad, lat=32.9ms
+[09:59:35] INFO      [100/573] good_posture_20241012_172239_png.rf.fe1d25262987db371a4c9db72053e1f6.jpg: GT=Bad, Pred=Bad, lat=32.8ms
+[09:59:36] INFO      [150/573] bad_posture_20241013_220642_png.rf.1823a120268980c62c40582e0092cfd4.jpg: GT=Bad, Pred=Bad, lat=33.0ms
+[09:59:38] INFO      [200/573] bad_posture_20241021_141725_png.rf.2f5d2755b7b58cdab695a3b597766de2.jpg: GT=Bad, Pred=Bad, lat=34.0ms
+[09:59:40] INFO      [250/573] good_posture_20241021_142330_png.rf.45f44a5ce97e9ae414b99bf0f7d294f7.jpg: GT=Good, Pred=Bad, lat=33.0ms
+[09:59:42] INFO      [300/573] good_posture_20241021_180549_png.rf.5d1e28c84ced36cab22c2e986b16380c.jpg: GT=Good, Pred=Bad, lat=33.3ms
+[09:59:43] INFO      [350/573] bad_posture_20241021_142111_png.rf.71eb50bb399a72995b18a75eea2b6792.jpg: GT=Bad, Pred=Bad, lat=32.9ms
+[09:59:45] INFO      [400/573] good_posture_20241021_141630_png.rf.854284226e2e4d012111a9a31f0c0b07.jpg: GT=Good, Pred=Bad, lat=34.5ms
+[09:59:47] INFO      [450/573] good_posture_20241013_222728_png.rf.9d58f269b9834e43da282c68a8030068.jpg: GT=Good, Pred=Good, lat=33.1ms
+[09:59:49] INFO      [500/573] good_posture_20241021_142053_png.rf.b09026b7069f9ebf8a2131fb83f6b063.jpg: GT=Good, Pred=Bad, lat=32.9ms
+[09:59:51] INFO      [550/573] bad_posture_20241013_222754_png.rf.c9117d9014735cde9b3dc3e784877604.jpg: GT=Bad, Pred=Bad, lat=34.8ms
+[09:59:51] INFO    OK train: Acc=66.32% F1=75.60% Recall=81.69% Prec=70.35% Lat=33.4ms
+[09:59:51] INFO  
+  -- Split: VALID --
+[09:59:51] INFO    [valid] Evaluating 55 images...
+[09:59:53] INFO      [50/55] image_20241007_192301_jpg.rf.fa66c9b3bc5dce6eddbcd80cff3b46ab.jpg: GT=Bad, Pred=Good, lat=32.9ms
+[09:59:53] INFO    OK valid: Acc=67.27% F1=78.57% Recall=89.19% Prec=70.21% Lat=34.96ms
+[09:59:53] INFO  
+  -- Split: TEST --
+[09:59:53] INFO    [test] Evaluating 27 images...
+[09:59:54] INFO    OK test: Acc=66.67% F1=76.92% Recall=88.24% Prec=68.18% Lat=33.24ms
+[09:59:54] INFO  
+============================================================
+[09:59:54] INFO  Evaluating: YOLO26n-Pose (Nano)
+[09:59:54] INFO  ============================================================
+[09:59:54] INFO  Loading HPE model: yolo26n_pose
+[09:59:56] INFO    -> Loaded in 1.13s
+[09:59:56] INFO  
+  -- Split: TRAIN --
+[09:59:56] INFO    [train] Evaluating 573 images...
+[10:52:12] INFO      [50/573] bad_posture_20241013_221218_png.rf.e5217e924397ca5e2727880291313b91.jpg: GT=Bad, Pred=Bad, lat=94.9ms
+[10:52:20] INFO      [100/573] good_posture_20241012_172239_png.rf.fe1d25262987db371a4c9db72053e1f6.jpg: GT=Bad, Pred=Good, lat=110.0ms
+[10:52:24] INFO      [150/573] bad_posture_20241013_220642_png.rf.1823a120268980c62c40582e0092cfd4.jpg: GT=Bad, Pred=Good, lat=74.0ms
+[10:52:27] INFO      [200/573] bad_posture_20241021_141725_png.rf.2f5d2755b7b58cdab695a3b597766de2.jpg: GT=Bad, Pred=Bad, lat=66.9ms
+[10:52:32] INFO      [250/573] good_posture_20241021_142330_png.rf.45f44a5ce97e9ae414b99bf0f7d294f7.jpg: GT=Good, Pred=Good, lat=115.6ms
+[10:52:36] INFO      [300/573] good_posture_20241021_180549_png.rf.5d1e28c84ced36cab22c2e986b16380c.jpg: GT=Good, Pred=Good, lat=76.3ms
+[10:52:40] INFO      [350/573] bad_posture_20241021_142111_png.rf.71eb50bb399a72995b18a75eea2b6792.jpg: GT=Bad, Pred=Bad, lat=84.3ms
+[10:52:44] INFO      [400/573] good_posture_20241021_141630_png.rf.854284226e2e4d012111a9a31f0c0b07.jpg: GT=Good, Pred=Good, lat=83.4ms
+[10:52:48] INFO      [450/573] good_posture_20241013_222728_png.rf.9d58f269b9834e43da282c68a8030068.jpg: GT=Good, Pred=Good, lat=85.0ms
+[10:52:52] INFO      [500/573] good_posture_20241021_142053_png.rf.b09026b7069f9ebf8a2131fb83f6b063.jpg: GT=Good, Pred=Good, lat=76.3ms
+[10:52:56] INFO      [550/573] bad_posture_20241013_222754_png.rf.c9117d9014735cde9b3dc3e784877604.jpg: GT=Bad, Pred=Bad, lat=83.4ms
+[10:52:58] INFO    OK train: Acc=71.73% F1=72.91% Recall=59.56% Prec=93.97% Lat=85.65ms
+[10:52:58] INFO  
+  -- Split: VALID --
+[10:52:58] INFO    [valid] Evaluating 55 images...
+[10:53:02] INFO      [50/55] image_20241007_192301_jpg.rf.fa66c9b3bc5dce6eddbcd80cff3b46ab.jpg: GT=Bad, Pred=Good, lat=75.4ms
+[10:53:03] INFO    OK valid: Acc=60.00% F1=60.71% Recall=45.95% Prec=89.47% Lat=81.97ms
+[10:53:03] INFO  
+  -- Split: TEST --
+[10:53:03] INFO    [test] Evaluating 27 images...
+[10:53:05] INFO    OK test: Acc=74.07% F1=74.07% Recall=58.82% Prec=100.00% Lat=78.18ms
+[10:53:05] INFO  
+============================================================
+[10:53:05] INFO  Generating reports...
+[10:53:05] INFO    Markdown report: /media/linhcbs/DATA/NCKH/NCKH HÈ/code/evaluation/results/hpe_eval_report.md
+[10:53:05] INFO    Summary JSON: /media/linhcbs/DATA/NCKH/NCKH HÈ/code/evaluation/results/hpe_eval_summary.json
+[10:53:05] INFO    Full JSON: /media/linhcbs/DATA/NCKH/NCKH HÈ/code/evaluation/results/hpe_eval_full.json
+[10:53:05] INFO  
+======================================================================
+[10:53:05] INFO  EVALUATION COMPLETE -- Summary (valid split)
+[10:53:05] INFO  ======================================================================
+[10:53:05] INFO  Model                            Accuracy       F1   Recall    Lat(ms)
+[10:53:05] INFO  ----------------------------------------------------------------------
+[10:53:05] INFO  MediaPipe Pose LITE                63.64%   71.43%   67.57%      12.95
+[10:53:05] INFO  MediaPipe Pose FULL                67.27%   72.73%   64.86%      18.54
+[10:53:05] INFO  MoveNet Lightning                  67.27%   80.00%   97.30%       7.44
+[10:53:05] INFO  MoveNet Thunder                    67.27%   78.57%   89.19%      34.96
+[10:53:05] INFO  YOLO26n-Pose (Nano)                60.00%   60.71%   45.95%      81.97
+[10:53:05] INFO  ======================================================================
+[10:53:05] INFO  
+Reports written to: /media/linhcbs/DATA/NCKH/NCKH HÈ/code/evaluation/results/
+[YOLO26n-pose (Nano)] Loading YOLO model from /media/linhcbs/DATA/NCKH/NCKH HÈ/code/benchmarks/weights/yolo26n-pose.pt...
