@@ -116,17 +116,30 @@ conda run -n ceoai2026 python demo_posture_webcam.py --camera 0
 conda run -n ceoai2026 python -m pytest tests/test_posture_analyzer.py -v
 ```
 ### 6. Chạy Trực quan hóa Webcam từng Mô hình với Tốc độ & RAM
-# 1. MediaPipe Pose Full (Mặc định)
+> 1. MediaPipe Pose Full (Mặc định)
 /home/linhcbs/anaconda3/envs/ceoai2026/bin/python demo_posture_webcam.py --model mediapipe_pose_full
 
-# 2. MediaPipe Pose Lite
+> 2. MediaPipe Pose Lite
 /home/linhcbs/anaconda3/envs/ceoai2026/bin/python demo_posture_webcam.py --model mediapipe_pose_lite
 
-# 3. MoveNet Lightning (Siêu nhẹ)
+> 3. MoveNet Lightning (Siêu nhẹ)
 /home/linhcbs/anaconda3/envs/ceoai2026/bin/python demo_posture_webcam.py --model movenet_lightning
 
-# 4. MoveNet Thunder
+> 4. MoveNet Thunder
 /home/linhcbs/anaconda3/envs/ceoai2026/bin/python demo_posture_webcam.py --model movenet_thunder
 
-# 5. YOLO26n-pose (Nano Multi-person)
+> 5. YOLO26n-pose (Nano Multi-person)
 /home/linhcbs/anaconda3/envs/ceoai2026/bin/python demo_posture_webcam.py --model yolo26n_pose
+
+### Evaluation
+> Full evaluation (all 5 models, all 3 splits)
+conda run -n ceoai2026 python3 evaluation/evaluate_hpe_classification.py
+
+> Quick test (5 images per split)
+conda run -n ceoai2026 python3 evaluation/evaluate_hpe_classification.py --dry-run
+
+> Single model
+conda run -n ceoai2026 python3 evaluation/evaluate_hpe_classification.py --models movenet_lightning
+
+> With verbose output
+conda run -n ceoai2026 python3 evaluation/evaluate_hpe_classification.py --verbose

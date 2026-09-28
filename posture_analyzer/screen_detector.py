@@ -112,9 +112,10 @@ class ScreenDetector:
             # Try common locations relative to this file
             _here = os.path.dirname(os.path.abspath(__file__))
             candidates = [
-                os.path.join(_here, "..", "benchmarks", "weights", "yolo11n.pt"),
+                os.path.join(_here, "..", "models", "weights", "yolo11n.pt"),
+                os.path.join(_here, "..", "models", "yolo11n.pt"),
                 os.path.join(_here, "..", "yolo11n.pt"),
-                "benchmarks/weights/yolo11n.pt",
+                "models/weights/yolo11n.pt",
                 "yolo11n.pt",
             ]
             model_path = next((p for p in candidates if os.path.exists(p)), None)

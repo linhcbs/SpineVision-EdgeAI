@@ -23,7 +23,7 @@ try:
         COLOR_FPS, COLOR_LAT, COLOR_RAM, COLOR_MODEL, COCO_CONNECTIONS
     )
 except ImportError:
-    from benchmarks.models.drawing_utils import (
+    from models.pipelines.drawing_utils import (
         load_config, resolve_weight_path, open_camera, draw_coco_landmarks, draw_hud,
         COLOR_FPS, COLOR_LAT, COLOR_RAM, COLOR_MODEL, COCO_CONNECTIONS
     )
@@ -36,7 +36,7 @@ MODEL_KEY                     = "yolo26m_pose"
 _CFG, _GLOBAL                 = load_config(MODEL_KEY, CONFIG_FILE_PATH)
 
 MODEL_NAME                    = _CFG.get("model_name", "YOLO26m-pose (Medium)")
-_WEIGHTS_FILE                 = _CFG.get("weights_file", "yolo11m-pose.pt")
+_WEIGHTS_FILE                 = _CFG.get("weights_file", "yolo26m-pose.pt")
 WEIGHTS_PATH                  = resolve_weight_path(_WEIGHTS_FILE)
 
 INPUT_SIZE                    = _CFG.get("input_size", 640)

@@ -23,6 +23,8 @@ Architecture:
 
 import time
 import math
+import json
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
@@ -50,11 +52,10 @@ class LightweightPostureML:
     """
     Lightweight ML Classifier & Ergonomic Risk Predictor.
     
-    Uses pre-calibrated feature projection and softmax/logistic regression
-    weights optimized for sub-millisecond CPU execution (<0.05ms per frame)
-    with zero external dependencies (pure NumPy).
-    
-    Can also be trained / fine-tuned with scikit-learn if available.
+    Supports:
+      1. Pre-trained / fine-tuned weights loaded from models/weights/ or configs/
+         running a 12D ergonomic neural network head in pure NumPy (<0.02ms latency).
+      2. Fallback heuristic weights if no trained weights file is present.
     """
 
     # Posture classes predicted by ML
@@ -67,84 +68,143 @@ class LightweightPostureML:
         PostureStatus.TOO_CLOSE,
     ]
 
-    def __init__(self):
-        # Feature dimension: 8
-        # [0] cva_deficit, [1] signed_lateral_tilt, [2] trunk_slump,
-        # [3] screen_dist_deficit, [4] desk_dist_deficit, [5] lateral_spine_offset,
-        # [6] yaw_normalized, [7] baseline_delta
+    def __init__(self, weights_path: Optional[str] = None):
         self.n_features = 8
         self.n_classes = len(self.CLASSES)
+        self.is_trained = False
+        self.model_type = "heuristic"
 
-        # Pre-calibrated Softmax weights (n_classes, n_features) and bias (n_classes,)
-        # Calibrated on ergonomic biometric distributions
+        # Heuristic fallback weights
         self.weights = np.array([
-            # GOOD / Upright: high baseline, penalizes all deficits
             [-2.5, -0.5, -3.0, -2.0, -1.5, -0.5, -0.2, -2.0],
-            # FORWARD_HEAD: strongly activates on CVA deficit
             [ 5.5,  0.0,  0.5,  0.5,  0.5,  0.0,  0.3,  2.5],
-            # SLOUCHED: strongly activates on trunk slump
             [ 0.8,  0.0,  6.0,  0.2,  0.5,  0.0,  0.2,  3.0],
-            # LEANING_LEFT: activates on negative lateral tilt and left spine offset
             [ 0.0, -5.0,  0.5,  0.0,  0.0, -3.5,  0.1,  1.5],
-            # LEANING_RIGHT: activates on positive lateral tilt and right spine offset
             [ 0.0,  5.0,  0.5,  0.0,  0.0,  3.5,  0.1,  1.5],
-            # TOO_CLOSE: activates on screen & desk distance deficits
             [ 0.5,  0.0,  0.5,  6.5,  4.0,  0.0,  0.0,  2.5],
         ], dtype=np.float32)
-
         self.bias = np.array([2.0, -1.0, -1.0, -1.2, -1.2, -1.0], dtype=np.float32)
 
-        # Calibrated Risk Regression weights
-        # Kyphosis risk weights: driven by trunk slump (feat 2), CVA (feat 0), baseline delta (feat 7)
         self.kyphosis_weights = np.array([0.35, 0.05, 0.75, 0.05, 0.05, 0.05, 0.05, 0.40], dtype=np.float32)
         self.kyphosis_bias = -0.15
-
-        # Myopia risk weights: driven by screen distance deficit (feat 3), desk deficit (feat 4), CVA (feat 0)
         self.myopia_weights = np.array([0.25, 0.0, 0.10, 0.85, 0.50, 0.0, 0.05, 0.30], dtype=np.float32)
         self.myopia_bias = -0.10
 
-        self._sklearn_model = None
+        # Try auto-loading trained weights
+        self._load_trained_weights(weights_path)
+
+    def _load_trained_weights(self, weights_path: Optional[str] = None):
+        """Attempt to load trained weights from specified or default paths."""
+        candidates = []
+        if weights_path:
+            candidates.append(Path(weights_path))
+
+        base_dir = Path(__file__).resolve().parent.parent
+        candidates.extend([
+            base_dir / "models" / "weights" / "posture_classifier_weights.json",
+            base_dir / "configs" / "posture_classifier_weights.json",
+            base_dir / "models" / "posture_classifier_weights.json",
+        ])
+
+        for p in candidates:
+            if p.exists():
+                try:
+                    with p.open("r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    
+                    self.scaler_mean = np.array(data["scaler_mean"], dtype=np.float32)
+                    self.scaler_scale = np.array(data["scaler_scale"], dtype=np.float32)
+                    
+                    mlp_data = data.get("mlp", {})
+                    if "weights" in mlp_data and "intercepts" in mlp_data:
+                        self.mlp_W1 = np.array(mlp_data["weights"][0], dtype=np.float32)
+                        self.mlp_b1 = np.array(mlp_data["intercepts"][0], dtype=np.float32)
+                        self.mlp_W2 = np.array(mlp_data["weights"][1], dtype=np.float32)
+                        self.mlp_b2 = np.array(mlp_data["intercepts"][1], dtype=np.float32)
+                        self.mlp_W3 = np.array(mlp_data["weights"][2], dtype=np.float32)
+                        self.mlp_b3 = np.array(mlp_data["intercepts"][2], dtype=np.float32)
+                        self.n_features = len(self.scaler_mean)
+                        self.is_trained = True
+                        self.model_type = "LightweightMLP (Trained)"
+                        break
+                except Exception:
+                    pass
 
     def extract_features(
         self,
         metrics: PostureMetrics,
         calibration: Optional[CalibrationData] = None,
+        kps: Optional[UnifiedKeypoints] = None,
     ) -> np.ndarray:
         """
-        Extract normalized 8-dimensional ergonomic feature vector.
-        All features normalized to roughly [0.0, 1.0] (or [-1.0, 1.0] for signed tilt).
+        Extract normalized ergonomic feature vector.
+        If trained weights are active, extracts a 12-dimensional vector.
         """
-        features = np.zeros(self.n_features, dtype=np.float32)
+        if self.is_trained:
+            feats = np.zeros(12, dtype=np.float32)
+            if not metrics.is_valid:
+                feats[1] = 0.5
+                feats[3] = 0.5
+                return feats
 
-        # 0: CVA deficit from normal threshold (50 deg in frontal/profile, 80 deg normal standard)
+            # 0: cva norm
+            feats[0] = max(0.0, min(1.5, metrics.neck_cva_deg / 90.0))
+            # 1: cva deficit below 50 degrees
+            feats[1] = max(0.0, min(1.5, (50.0 - metrics.neck_cva_deg) / 25.0)) if metrics.neck_cva_deg > 0 else 0.5
+            # 2: trunk norm
+            feats[2] = max(0.0, min(1.5, metrics.trunk_angle_deg / 90.0))
+            # 3: trunk slump
+            feats[3] = max(0.0, min(2.0, metrics.trunk_angle_deg / 18.0))
+            # 4: shoulder tilt signed
+            feats[4] = max(-1.5, min(1.5, metrics.shoulder_tilt_deg / 15.0))
+            # 5: shoulder tilt abs
+            feats[5] = max(0.0, min(1.5, abs(metrics.shoulder_tilt_deg) / 15.0))
+            # 6: lateral spine offset
+            feats[6] = max(-1.5, min(1.5, metrics.lateral_spine_offset * 3.0))
+            # 7: yaw
+            feats[7] = max(0.0, min(1.5, metrics.yaw_deg / 70.0))
+            # 8: eye dist deficit
+            if metrics.eye_distance_cm > 0:
+                feats[8] = max(0.0, min(1.5, (50.0 - metrics.eye_distance_cm) / 30.0))
+
+            # 9, 10, 11: geometric keypoint ratios
+            if kps is not None:
+                mid_sh = kps.get_midpoint("left_shoulder", "right_shoulder")
+                ls = kps.get("left_shoulder")
+                rs = kps.get("right_shoulder")
+                sh_w = np.hypot(ls.x - rs.x, ls.y - rs.y) if (ls and rs) else 100.0
+                sh_w = max(sh_w, 20.0)
+
+                mid_ear = kps.get_midpoint("left_ear", "right_ear")
+                nose = kps.get("nose")
+                mid_hip = kps.get_midpoint("left_hip", "right_hip")
+
+                if mid_ear and mid_sh:
+                    feats[9] = max(0.0, min(2.0, (mid_sh.y - mid_ear.y) / sh_w))
+                if nose and mid_sh:
+                    feats[10] = max(0.0, min(2.0, (mid_sh.y - nose.y) / sh_w))
+                if mid_sh and mid_hip:
+                    torso_len = max(30.0, np.hypot(mid_sh.x - mid_hip.x, mid_sh.y - mid_hip.y))
+                    feats[11] = max(-1.5, min(1.5, (mid_sh.x - mid_hip.x) / torso_len))
+
+            return feats
+
+        # Default 8D heuristic features
+        features = np.zeros(self.n_features, dtype=np.float32)
         ref_cva = 50.0
         if metrics.neck_cva_deg > 0:
             features[0] = max(0.0, min(1.0, (ref_cva - metrics.neck_cva_deg) / 25.0))
-
-        # 1: Signed lateral tilt normalized by ~15 degrees
         tilt = getattr(metrics, "lateral_tilt_deg", 0.0)
         features[1] = max(-1.0, min(1.0, tilt / 12.0))
-
-        # 2: Trunk slump angle normalized by 20 degrees
         features[2] = max(0.0, min(1.5, metrics.trunk_angle_deg / 18.0))
-
-        # 3: Screen distance deficit below safe distance (50 cm)
         scr_dist = metrics.eye_distance_cm
         if scr_dist > 0:
             features[3] = max(0.0, min(1.5, (50.0 - scr_dist) / 30.0))
-
-        # 4: Desk distance deficit below safe desk distance (35 cm)
         desk_dist = metrics.eye_to_desk_cm
         if desk_dist > 0:
             features[4] = max(0.0, min(1.5, (35.0 - desk_dist) / 20.0))
-
-        # 5: Lateral spine offset
         features[5] = max(-1.0, min(1.0, getattr(metrics, "lateral_spine_offset", 0.0) * 3.0))
-
-        # 6: Head/torso yaw angle
         features[6] = max(0.0, min(1.0, metrics.yaw_deg / 70.0))
-
-        # 7: Calibrated baseline deviation (if calibrated)
         if calibration is not None and calibration.is_calibrated:
             d_trunk = max(0.0, metrics.trunk_angle_deg - calibration.baseline_trunk_angle)
             d_cva = max(0.0, calibration.baseline_neck_cva - metrics.neck_cva_deg) if metrics.neck_cva_deg > 0 else 0.0
@@ -155,26 +215,68 @@ class LightweightPostureML:
     def predict(
         self,
         features: np.ndarray,
-    ) -> Tuple[PostureStatus, Dict[PostureStatus, float], float, float]:
+        metrics: Optional[PostureMetrics] = None,
+        kps: Optional[UnifiedKeypoints] = None,
+    ) -> Tuple[PostureStatus, Dict[Any, float], float, float]:
         """
         Inference: Returns (predicted_class, class_probabilities, kyphosis_score, myopia_score).
-        Runs in < 0.05ms on CPU.
+        Runs in < 0.02ms on CPU using pure NumPy.
         """
-        # Linear logits: z = W * x + b
-        logits = np.dot(self.weights, features) + self.bias
-        # Softmax
+        if self.is_trained:
+            # 1. Scaler
+            x_norm = (features - self.scaler_mean) / np.maximum(self.scaler_scale, 1e-6)
+
+            # 2. MLP Forward Pass (12 -> 16 -> 8 -> 1)
+            h1 = np.maximum(0.0, np.dot(x_norm, self.mlp_W1) + self.mlp_b1)
+            h2 = np.maximum(0.0, np.dot(h1, self.mlp_W2) + self.mlp_b2)
+            z = np.dot(h2, self.mlp_W3) + self.mlp_b3
+            z_val = float(np.clip(z[0], -15.0, 15.0))
+
+            p_bad = float(1.0 / (1.0 + math.exp(-z_val)))
+            p_good = float(1.0 - p_bad)
+
+            # Probabilities dictionary
+            prob_dict = {
+                "Good": p_good,
+                "Bad": p_bad,
+                PostureStatus.GOOD: p_good,
+            }
+
+            if p_bad < 0.5:
+                predicted_class = PostureStatus.GOOD
+            else:
+                # Assign specific ergonomic violation
+                if metrics and metrics.trunk_angle_deg > 14.0:
+                    predicted_class = PostureStatus.SLOUCHED
+                elif metrics and metrics.neck_cva_deg > 0 and metrics.neck_cva_deg < 48.0:
+                    predicted_class = PostureStatus.FORWARD_HEAD
+                elif metrics and abs(getattr(metrics, "shoulder_tilt_deg", 0.0)) > 7.0:
+                    predicted_class = PostureStatus.LEANING_LEFT if metrics.shoulder_tilt_deg < 0 else PostureStatus.LEANING_RIGHT
+                else:
+                    predicted_class = PostureStatus.SLOUCHED
+
+            kyph_score = max(0.05, p_bad)
+            myop_score = 0.10
+            if metrics and metrics.eye_distance_cm > 0:
+                myop_score = max(0.10, min(1.0, (50.0 - metrics.eye_distance_cm) / 25.0))
+
+            return predicted_class, prob_dict, kyph_score, myop_score
+
+        # Heuristic linear softmax fallback
+        logits = np.dot(self.weights, features[:8]) + self.bias
         exp_logits = np.exp(logits - np.max(logits))
         probs = exp_logits / np.sum(exp_logits)
 
         best_idx = int(np.argmax(probs))
         predicted_class = self.CLASSES[best_idx]
         prob_dict = {cls: float(probs[i]) for i, cls in enumerate(self.CLASSES)}
+        prob_dict["Good"] = float(probs[0])
+        prob_dict["Bad"] = float(1.0 - probs[0])
 
-        # Regression scores via sigmoid
-        kyph_z = float(np.dot(self.kyphosis_weights, features) + self.kyphosis_bias)
+        kyph_z = float(np.dot(self.kyphosis_weights, features[:8]) + self.kyphosis_bias)
         kyph_score = 1.0 / (1.0 + math.exp(-max(-8.0, min(8.0, kyph_z * 3.0))))
 
-        myop_z = float(np.dot(self.myopia_weights, features) + self.myopia_bias)
+        myop_z = float(np.dot(self.myopia_weights, features[:8]) + self.myopia_bias)
         myop_score = 1.0 / (1.0 + math.exp(-max(-8.0, min(8.0, myop_z * 3.0))))
 
         return predicted_class, prob_dict, kyph_score, myop_score
@@ -590,14 +692,19 @@ class PostureClassifier:
         # ----------------------------------------------------------------------
         # 6. ML Predictor Execution (Tier 2)
         # ----------------------------------------------------------------------
-        ml_features = self.ml_predictor.extract_features(metrics, calibration)
-        ml_class, ml_probs, ml_kyph_score, ml_myop_score = self.ml_predictor.predict(ml_features)
+        ml_features = self.ml_predictor.extract_features(metrics, calibration, kps=kps)
+        ml_class, ml_probs, ml_kyph_score, ml_myop_score = self.ml_predictor.predict(
+            ml_features, metrics=metrics, kps=kps
+        )
+        p_bad = float(ml_probs.get("Bad", 0.5))
+        p_good = float(ml_probs.get("Good", 0.5))
+        deviations["ml_prob_bad"] = round(p_bad, 3)
+        deviations["ml_prob_good"] = round(p_good, 3)
 
         # ----------------------------------------------------------------------
         # 7. Clinical Risk Calculations (Instantaneous)
         # ----------------------------------------------------------------------
         # Kyphosis instant risk formula:
-        # Driven by trunk slump (0.65), forward head CVA (0.35)
         trunk_strain = min(1.0, max(0.0, (metrics.trunk_angle_deg - 8.0) / 12.0))
         cva_strain = 0.0
         if metrics.neck_cva_deg > 0:
@@ -611,7 +718,7 @@ class PostureClassifier:
         if self.mode == "ml":
             instant_kyph_norm = ml_kyph_score
         elif self.mode == "hybrid":
-            instant_kyph_norm = 0.55 * rule_kyph_score + 0.45 * ml_kyph_score
+            instant_kyph_norm = 0.50 * rule_kyph_score + 0.50 * ml_kyph_score
         else:
             instant_kyph_norm = rule_kyph_score
 
@@ -620,7 +727,6 @@ class PostureClassifier:
             instant_kyphosis_risk_pct = min(instant_kyphosis_risk_pct, 18.0)
 
         # Myopia instant risk formula:
-        # Driven by eye-to-screen distance, desk distance, and detected devices
         min_screen_dist = metrics.eye_distance_cm
         for dev in getattr(metrics, "device_distances", []):
             if dev.distance_cm > 0:
@@ -656,7 +762,7 @@ class PostureClassifier:
         # ----------------------------------------------------------------------
         # 8. Prolonged Exposure Risk Diagnosis
         # ----------------------------------------------------------------------
-        is_bad_posture = trunk_violation or cva_violation or tilt_violation
+        is_bad_posture = trunk_violation or cva_violation or tilt_violation or p_bad >= 0.5
         is_near_screen = screen_violation or desk_violation
 
         (
@@ -678,56 +784,78 @@ class PostureClassifier:
         # ----------------------------------------------------------------------
         # 9. Sitting Posture Classification & English Description
         # ----------------------------------------------------------------------
-        # Unique primary violations (deduplicating generic SHOULDER_TILTED if specific present)
         active_violations = [v for v in violations if v != PostureStatus.SHOULDER_TILTED]
         if not active_violations and PostureStatus.SHOULDER_TILTED in violations:
             active_violations = [PostureStatus.SHOULDER_TILTED]
 
-        if len(active_violations) == 0:
-            status = PostureStatus.GOOD
-            alert_level = AlertLevel.SAFE
-            posture_desc = "Upright / Straight"
-        elif len(active_violations) == 1:
-            status = active_violations[0]
-            max_sev = max(severity_scores) if severity_scores else 0.4
-            if max_sev >= 0.8:
-                alert_level = AlertLevel.CRITICAL
-            elif max_sev >= 0.4:
-                alert_level = AlertLevel.WARNING
-            else:
-                alert_level = AlertLevel.MILD
+        desc_map = {
+            PostureStatus.LEANING_LEFT: "Leaning Left",
+            PostureStatus.LEANING_RIGHT: "Leaning Right",
+            PostureStatus.SHOULDER_TILTED: "Shoulder Tilted",
+            PostureStatus.SLOUCHED: "Slouched (Kyphosis)",
+            PostureStatus.FORWARD_HEAD: "Forward Head (Tech Neck)",
+            PostureStatus.TOO_CLOSE: "Screen Too Close",
+            PostureStatus.TOO_CLOSE_DESK: "Too Close to Desk",
+        }
 
-            desc_map = {
-                PostureStatus.LEANING_LEFT: "Leaning Left",
-                PostureStatus.LEANING_RIGHT: "Leaning Right",
-                PostureStatus.SHOULDER_TILTED: "Shoulder Tilted",
-                PostureStatus.SLOUCHED: "Slouched (Kyphosis)",
-                PostureStatus.FORWARD_HEAD: "Forward Head (Tech Neck)",
-                PostureStatus.TOO_CLOSE: "Screen Too Close",
-                PostureStatus.TOO_CLOSE_DESK: "Too Close to Desk",
-            }
-            posture_desc = desc_map.get(status, status.value.replace("_", " ").title())
+        if self.mode == "ml" and self.ml_predictor.is_trained:
+            # Pure Trained ML Mode
+            if p_bad < 0.50:
+                status = PostureStatus.GOOD
+                alert_level = AlertLevel.SAFE
+                posture_desc = f"Upright (ML {p_good*100:.0f}%)"
+            else:
+                status = active_violations[0] if active_violations else ml_class
+                if status == PostureStatus.GOOD:
+                    status = PostureStatus.SLOUCHED
+                alert_level = AlertLevel.WARNING if p_bad < 0.75 else AlertLevel.CRITICAL
+                posture_desc = f"{status.value.replace('_', ' ').title()} (ML {p_bad*100:.0f}%)"
+
+        elif self.mode == "hybrid" and self.ml_predictor.is_trained:
+            # Hybrid Mode: fuses rules with trained ML neural network head
+            rule_has_violation = len(active_violations) > 0
+            severe_violation = any(s >= 0.8 for s in severity_scores)
+
+            if not severe_violation and p_bad < 0.35:
+                # ML confidently confirms Good posture, filter out minor threshold noise
+                status = PostureStatus.GOOD
+                alert_level = AlertLevel.SAFE
+                posture_desc = f"Upright (Hybrid {p_good*100:.0f}%)"
+            elif p_bad >= 0.52 or (rule_has_violation and p_bad >= 0.40):
+                if len(active_violations) == 1:
+                    status = active_violations[0]
+                    alert_level = AlertLevel.WARNING if p_bad < 0.75 else AlertLevel.CRITICAL
+                    posture_desc = desc_map.get(status, status.value.replace("_", " ").title())
+                elif len(active_violations) > 1:
+                    status = PostureStatus.COMBINED
+                    alert_level = AlertLevel.CRITICAL
+                    names = [desc_map.get(v, v.value) for v in active_violations]
+                    posture_desc = "Combined: " + " + ".join(names[:2])
+                else:
+                    status = ml_class if ml_class != PostureStatus.GOOD else PostureStatus.SLOUCHED
+                    alert_level = AlertLevel.WARNING
+                    posture_desc = f"{status.value.replace('_', ' ').title()} (Hybrid {p_bad*100:.0f}%)"
+            else:
+                status = PostureStatus.GOOD
+                alert_level = AlertLevel.SAFE
+                posture_desc = "Upright / Straight"
+
         else:
-            status = PostureStatus.COMBINED
-            max_sev = max(severity_scores) if severity_scores else 0.5
-            if max_sev >= 0.8 or len(active_violations) >= 3:
-                alert_level = AlertLevel.CRITICAL
+            # Rule-based Mode
+            if len(active_violations) == 0:
+                status = PostureStatus.GOOD
+                alert_level = AlertLevel.SAFE
+                posture_desc = "Upright / Straight"
+            elif len(active_violations) == 1:
+                status = active_violations[0]
+                max_sev = max(severity_scores) if severity_scores else 0.4
+                alert_level = AlertLevel.CRITICAL if max_sev >= 0.8 else (AlertLevel.WARNING if max_sev >= 0.4 else AlertLevel.MILD)
+                posture_desc = desc_map.get(status, status.value.replace("_", " ").title())
             else:
-                alert_level = AlertLevel.WARNING
-
-            # Formulate English combined description
-            names = []
-            if PostureStatus.SLOUCHED in active_violations:
-                names.append("Kyphosis")
-            if PostureStatus.FORWARD_HEAD in active_violations:
-                names.append("Tech Neck")
-            if PostureStatus.LEANING_LEFT in active_violations:
-                names.append("Lean Left")
-            elif PostureStatus.LEANING_RIGHT in active_violations:
-                names.append("Lean Right")
-            if PostureStatus.TOO_CLOSE in active_violations:
-                names.append("Near Screen")
-            posture_desc = "Combined: " + " + ".join(names[:2]) if names else "Combined Violations"
+                status = PostureStatus.COMBINED
+                alert_level = AlertLevel.CRITICAL if any(s >= 0.8 for s in severity_scores) or len(active_violations) >= 3 else AlertLevel.WARNING
+                names = [v.value.replace("_", " ").title() for v in active_violations]
+                posture_desc = "Combined: " + " + ".join(names[:2])
 
         # Construct RiskAssessment
         risk_assessment = RiskAssessment(

@@ -21,7 +21,7 @@ if SCRIPT_DIR not in sys.path:
 try:
     from drawing_utils import resolve_weight_path
 except ImportError:
-    from benchmarks.models.drawing_utils import resolve_weight_path
+    from models.pipelines.drawing_utils import resolve_weight_path
 
 # ============ CONFIG ============
 MODEL_PATH = resolve_weight_path("yolov8n-pose.pt")

@@ -59,7 +59,10 @@ from posture_analyzer import (
     canonical_model_key,
 )
 from posture_analyzer.config import get_posture_config
-from benchmarks.models.drawing_utils import open_camera
+try:
+    from models.pipelines.drawing_utils import open_camera
+except ImportError:
+    from drawing_utils import open_camera
 
 try:
     import psutil
@@ -207,7 +210,7 @@ def main():
             now_ms = int(time.time() * 1000)
             if now_ms <= last_timestamp_ms:
                 now_ms = last_timestamp_ms + 1
-            last_timestamp_ms = now_ms
+            last_timestamp_ms = now_ms  
             current_timestamp_ms = now_ms
 
             # 4. Universal HPE Pose Inference & Conversion
@@ -279,7 +282,8 @@ def main():
             # Show active status of features
             smoothing_str = "ON (One-Euro)" if engine.use_smoothing else "OFF"
             calib_str = "CALIBRATED" if engine.is_calibrated else "UNCALIBRATED"
-            mode_str = engine.classifier.mode.upper()
+            ml_tag = " [ML-TRAINED]" if engine.classifier.ml_predictor.is_trained else ""
+            mode_str = engine.classifier.mode.upper() + ml_tag
             cv2.putText(
                 frame,
                 f"Filter: {smoothing_str} | Base: {calib_str} | Mode: {mode_str}",
@@ -290,6 +294,22 @@ def main():
                 1,
                 cv2.LINE_AA,
             )
+
+            # Display real-time trained ML confidence if available
+            if engine.classifier.ml_predictor.is_trained and kps is not None:
+                p_good = state.deviations.get("ml_prob_good", 0.5)
+                p_bad = state.deviations.get("ml_prob_bad", 0.5)
+                clf_color = (80, 230, 80) if p_good >= 0.5 else (80, 80, 240)
+                cv2.putText(
+                    frame,
+                    f"Trained ML Head: P(Good)={p_good*100:.0f}% | P(Bad)={p_bad*100:.0f}%",
+                    (15, 92),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.42,
+                    clf_color,
+                    1,
+                    cv2.LINE_AA,
+                )
 
             cv2.imshow(window_name, frame)
 

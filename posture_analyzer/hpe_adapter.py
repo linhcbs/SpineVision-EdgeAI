@@ -31,15 +31,15 @@ from .types import (
     convert_coco_to_unified,
 )
 
-# Benchmark models directory resolution
-BENCHMARKS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "benchmarks")
-MODELS_DIR = os.path.join(BENCHMARKS_DIR, "models")
-WEIGHTS_DIR = os.path.join(BENCHMARKS_DIR, "weights")
+# Models and weights directory resolution
+CODE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODELS_DIR = os.path.join(CODE_DIR, "models", "pipelines")
+WEIGHTS_DIR = os.path.join(CODE_DIR, "models", "weights")
 
-if BENCHMARKS_DIR not in sys.path:
-    sys.path.insert(0, BENCHMARKS_DIR)
 if MODELS_DIR not in sys.path:
     sys.path.insert(0, MODELS_DIR)
+if CODE_DIR not in sys.path:
+    sys.path.insert(0, CODE_DIR)
 
 
 def _resolve_weight(filename: str) -> str:
@@ -131,9 +131,9 @@ class MediaPipePoseAdapter(BaseHPEAdapter):
         super().__init__(model_key=key, model_name=name, keypoint_format=KeypointFormat.MEDIAPIPE_33, has_3d_depth=True)
 
         try:
-            from benchmarks.models.mediapipe_pose_full import MediaPipePoseDetector
+            from models.pipelines.mediapipe_pose_full import MediaPipePoseDetector
         except ImportError:
-            from models.mediapipe_pose_full import MediaPipePoseDetector
+            from mediapipe_pose_full import MediaPipePoseDetector
 
         self.detector = MediaPipePoseDetector(model_path=resolved_path, num_poses=num_poses)
         self._last_ts_ms = 0
@@ -182,9 +182,9 @@ class MoveNetPoseAdapter(BaseHPEAdapter):
         super().__init__(model_key=key, model_name=name, keypoint_format=KeypointFormat.COCO_17, has_3d_depth=False)
 
         try:
-            from benchmarks.models.movenet_lightning import MoveNetPoseDetector
+            from models.pipelines.movenet_lightning import MoveNetPoseDetector
         except ImportError:
-            from models.movenet_lightning import MoveNetPoseDetector
+            from movenet_lightning import MoveNetPoseDetector
 
         self.detector = MoveNetPoseDetector(model_path=resolved_path, input_size=input_size)
 
@@ -246,9 +246,9 @@ class YOLOPoseAdapter(BaseHPEAdapter):
         super().__init__(model_key=key, model_name=name, keypoint_format=KeypointFormat.COCO_17, has_3d_depth=False)
 
         try:
-            from benchmarks.models.yolo26n_pose import YOLOPoseDetector
+            from models.pipelines.yolo26n_pose import YOLOPoseDetector
         except ImportError:
-            from models.yolo26n_pose import YOLOPoseDetector
+            from yolo26n_pose import YOLOPoseDetector
 
         self.detector = YOLOPoseDetector(
             weights_path=resolved_path,

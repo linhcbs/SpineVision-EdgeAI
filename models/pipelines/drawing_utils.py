@@ -56,11 +56,12 @@ COCO_BONE_COLORS = [
 def load_config(model_key=None, config_path=None):
     """Load config from pose_models_config.json with optional model_key slice."""
     if config_path is None:
-        benchmarks_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        root_dir = os.path.dirname(benchmarks_dir)
+        pipelines_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.dirname(pipelines_dir)
+        root_dir = os.path.dirname(models_dir)
         candidate_paths = [
             os.path.join(root_dir, "configs", "pose_models_config.json"),
-            os.path.join(benchmarks_dir, "configs", "pose_models_config.json"),
+            os.path.join(models_dir, "configs", "pose_models_config.json"),
         ]
         for p in candidate_paths:
             if os.path.exists(p):
@@ -81,17 +82,20 @@ def load_config(model_key=None, config_path=None):
 
 def resolve_weight_path(filename):
     """Resolve absolute path to weight file, searching weights/ directory first."""
-    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pipelines_dir = os.path.dirname(os.path.abspath(__file__))
+    models_dir = os.path.dirname(pipelines_dir)
+    root_dir = os.path.dirname(models_dir)
     search_paths = [
-        os.path.join(base_dir, "weights", filename),
-        os.path.join(base_dir, "models", filename),
-        os.path.join(base_dir, filename),
+        os.path.join(models_dir, "weights", filename),
+        os.path.join(root_dir, "models", "weights", filename),
+        os.path.join(models_dir, filename),
+        os.path.join(pipelines_dir, filename),
         filename
     ]
     for p in search_paths:
         if os.path.exists(p):
             return os.path.abspath(p)
-    return os.path.join(base_dir, "weights", filename)
+    return os.path.join(models_dir, "weights", filename)
 
 
 
