@@ -22,11 +22,41 @@ class PostureStatus(Enum):
     GOOD = "GOOD"
     FORWARD_HEAD = "FORWARD_HEAD"       # Forward Head / Text Neck
     SLOUCHED = "SLOUCHED"               # Slouching / Kyphosis
-    SHOULDER_TILTED = "SHOULDER_TILTED" # Lateral shoulder asymmetry
+    SHOULDER_TILTED = "SHOULDER_TILTED" # Lateral shoulder asymmetry (generic)
+    LEANING_LEFT = "LEANING_LEFT"       # Lateral tilt / lean to the left
+    LEANING_RIGHT = "LEANING_RIGHT"     # Lateral tilt / lean to the right
     TOO_CLOSE = "TOO_CLOSE"             # Too close to screen
     TOO_CLOSE_DESK = "TOO_CLOSE_DESK"   # Too close to desk surface
     COMBINED = "COMBINED"               # Multiple simultaneous violations
     UNKNOWN = "UNKNOWN"                 # Undetermined / detecting
+
+
+class RiskSeverity(Enum):
+    """Ergonomic risk and severity categories."""
+    LOW = "Low"
+    MODERATE = "Moderate"
+    HIGH = "High"
+    SEVERE = "Severe"
+
+
+@dataclass
+class RiskAssessment:
+    """Quantitative risk and severity assessment for ergonomic disorders."""
+    # Kyphosis (Gù lưng)
+    kyphosis_risk_pct: float = 0.0              # Instantaneous Kyphosis Risk (0 - 100%)
+    prolonged_kyphosis_risk_pct: float = 0.0    # Prolonged / cumulative exposure risk (0 - 100%)
+    kyphosis_severity: str = "Low"              # Low | Moderate | High | Severe
+
+    # Myopia (Cận thị)
+    myopia_risk_pct: float = 0.0                # Instantaneous Myopia Risk (0 - 100%)
+    prolonged_myopia_risk_pct: float = 0.0      # Prolonged / cumulative exposure risk (0 - 100%)
+    myopia_severity: str = "Low"                # Low | Moderate | High | Severe
+
+    # Sitting Posture Description
+    posture_description: str = "Upright / Straight"  # English descriptive label
+    bad_posture_duration_s: float = 0.0         # Continuous duration in bad posture (seconds)
+    near_screen_duration_s: float = 0.0         # Continuous duration close to screen (seconds)
+    classifier_mode: str = "hybrid"             # rule_based | ml | hybrid
 
 
 class AlertLevel(Enum):
@@ -152,6 +182,8 @@ class PostureMetrics:
     neck_cva_deg: float = 0.0              # Craniovertebral Angle (degrees)
     shoulder_tilt_deg: float = 0.0         # Raw shoulder tilt deviation (degrees)
     shoulder_level_deg: float = 180.0      # Scaled shoulder angle [180° = level, 90° = vertical]
+    lateral_tilt_deg: float = 0.0          # Signed lateral tilt (deg): <0 = tilt left, >0 = tilt right
+    lateral_spine_offset: float = 0.0      # Signed horizontal offset (mid_shoulder.x - mid_hip.x) / torso_len
     trunk_angle_deg: float = 0.0           # Trunk / Spine Slump Angle (degrees)
     eye_distance_cm: float = -1.0          # Eye-to-Screen distance (cm), -1 = unavailable (primary / webcam)
     eye_to_desk_cm: float = -1.0           # Eye-to-Desk distance (cm), -1 = unavailable
@@ -188,6 +220,14 @@ class PostureState:
     alert_level: AlertLevel = AlertLevel.SAFE
     is_calibrated: bool = False
     timestamp_ms: float = 0.0
+
+    # Ergonomic risk & diagnostic assessment
+    risk_assessment: RiskAssessment = field(default_factory=RiskAssessment)
+    kyphosis_risk_pct: float = 0.0              # Direct access to instant kyphosis risk
+    prolonged_kyphosis_risk_pct: float = 0.0    # Direct access to prolonged kyphosis risk
+    myopia_risk_pct: float = 0.0                # Direct access to instant myopia risk
+    prolonged_myopia_risk_pct: float = 0.0      # Direct access to prolonged myopia risk
+    posture_description: str = "Upright / Straight"  # English sitting posture description
 
     # Workspace detection results
     desk_line_y: int = -1                  # Detected desk surface y-coordinate (-1 = not detected)

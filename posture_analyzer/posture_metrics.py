@@ -321,10 +321,39 @@ class PostureMetricsCalculator:
         # Scaled shoulder level angle: 180° = level (flat), decreasing to 90° as tilt increases
         shoulder_level = 180.0 - min(90.0, raw_tilt)
 
+        # Signed lateral tilt (<0 = tilt left, >0 = tilt right) and lateral spine offset
+        signed_tilt = 0.0
+        lateral_offset = 0.0
+        l_shoulder = kps.get("left_shoulder")
+        r_shoulder = kps.get("right_shoulder")
+        if self._is_valid(l_shoulder) and self._is_valid(r_shoulder):
+            dy_sh = l_shoulder.y - r_shoulder.y
+            # In pixel coordinates, larger y is lower down.
+            # If left shoulder is lower (dy_sh > 0) -> tilting towards left (-).
+            # If right shoulder is lower (dy_sh < 0) -> tilting towards right (+).
+            tilt_sign = -1.0 if dy_sh > 0.5 else (1.0 if dy_sh < -0.5 else 0.0)
+            signed_tilt = tilt_sign * raw_tilt
+
+            mid_shoulder = kps.get_midpoint("left_shoulder", "right_shoulder")
+            mid_hip = kps.get_midpoint("left_hip", "right_hip")
+            if mid_shoulder is not None and mid_hip is not None and self._is_valid(mid_hip):
+                dx_sh = l_shoulder.x - r_shoulder.x
+                dy_sh_full = l_shoulder.y - r_shoulder.y
+                sh_len = math.sqrt(dx_sh * dx_sh + dy_sh_full * dy_sh_full)
+                dx_sp = mid_shoulder.x - mid_hip.x
+                dy_sp = mid_shoulder.y - mid_hip.y
+                torso_len = math.sqrt(dx_sp * dx_sp + dy_sp * dy_sp)
+                if sh_len > 1e-4 and torso_len > 1e-4:
+                    # Projection of spine shift onto LR shoulder axis
+                    proj = (dx_sp * dx_sh + dy_sp * dy_sh_full) / (sh_len * torso_len)
+                    lateral_offset = float(proj)
+
         return PostureMetrics(
             neck_cva_deg=neck_cva if neck_cva is not None else 0.0,
             shoulder_tilt_deg=raw_tilt,
             shoulder_level_deg=shoulder_level,
+            lateral_tilt_deg=signed_tilt,
+            lateral_spine_offset=lateral_offset,
             trunk_angle_deg=trunk_angle if trunk_angle is not None else 0.0,
             eye_distance_cm=-1.0,  # Computed separately by DistanceEstimator
             eye_to_desk_cm=-1.0,   # Computed using desk surface

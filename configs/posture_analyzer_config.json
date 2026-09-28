@@ -158,9 +158,16 @@
   "classification": {
     "use_relative_when_calibrated": true,
     "default_sensitivity": 1.0,
+    "mode": "hybrid",
+    "enable_ml": true,
     "severity_levels": {
       "mild_threshold": 0.4,
       "critical_threshold": 0.8
+    },
+    "prolonged_risk": {
+      "kyphosis_max_exposure_s": 45.0,
+      "myopia_max_exposure_s": 45.0,
+      "recovery_half_life_s": 10.0
     }
   },
   "workspace_detection": {
@@ -185,16 +192,18 @@
     "language": "en",
     "show_ram": true,
     "show_fps_latency": true,
-    "panel_width": 310,
-    "panel_opacity": 0.75,
+    "panel_width": 330,
+    "panel_opacity": 0.78,
     "status_labels": {
-      "GOOD": "Good Posture",
-      "FORWARD_HEAD": "Forward Head",
-      "SLOUCHED": "Slouched Spine",
+      "GOOD": "Upright / Straight",
+      "FORWARD_HEAD": "Forward Head (Tech Neck)",
+      "SLOUCHED": "Slouched (Kyphosis)",
       "SHOULDER_TILTED": "Shoulder Tilted",
-      "TOO_CLOSE": "Too Close to Screen",
+      "LEANING_LEFT": "Leaning Left",
+      "LEANING_RIGHT": "Leaning Right",
+      "TOO_CLOSE": "Screen Too Close",
       "TOO_CLOSE_DESK": "Too Close to Desk",
-      "COMBINED": "Multiple Violations",
+      "COMBINED": "Combined Violations",
       "UNKNOWN": "Detecting..."
     }
   }

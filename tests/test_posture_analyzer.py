@@ -416,6 +416,232 @@ def test_adaptive_view_modes_and_hysteresis():
     assert h_calc._current_view_mode == ViewMode.FRONTAL  # Returned to FRONTAL!
 
 
+def test_leaning_left_right_detection():
+    """Verify classifier correctly detects LEANING_LEFT vs LEANING_RIGHT."""
+    calc = PostureMetricsCalculator()
+    classifier = PostureClassifier()
+
+    # 1. Leaning Left: left shoulder dropped (larger y)
+    kps_left = _create_mock_keypoints(tilt_right=True)  # l_shoulder_y=220, r_shoulder_y=180
+    metrics_left = calc.compute_all(kps_left)
+    assert metrics_left.lateral_tilt_deg < 0  # Negative = Left
+    state_left = classifier.classify(metrics_left, kps=kps_left)
+    assert state_left.status == PostureStatus.LEANING_LEFT
+    assert PostureStatus.SHOULDER_TILTED in state_left.violations
+    assert PostureStatus.LEANING_LEFT in state_left.violations
+    assert "Left" in state_left.posture_description
+
+    # 2. Leaning Right: right shoulder dropped
+    kps_right = _create_mock_keypoints()
+    kps_right.keypoints["left_shoulder"] = NormalizedKeypoint(250.0, 180.0, 0.0, 0.95)
+    kps_right.keypoints["right_shoulder"] = NormalizedKeypoint(390.0, 220.0, 0.0, 0.95)
+    metrics_right = calc.compute_all(kps_right)
+    assert metrics_right.lateral_tilt_deg > 0  # Positive = Right
+    state_right = classifier.classify(metrics_right, kps=kps_right)
+    assert state_right.status == PostureStatus.LEANING_RIGHT
+    assert PostureStatus.SHOULDER_TILTED in state_right.violations
+    assert PostureStatus.LEANING_RIGHT in state_right.violations
+    assert "Right" in state_right.posture_description
+
+
+def test_lightweight_ml_classifier():
+    """Verify LightweightPostureML extracts features and predicts probabilities."""
+    from posture_analyzer.posture_classifier import LightweightPostureML
+
+    ml = LightweightPostureML()
+    calc = PostureMetricsCalculator()
+
+    # Test upright keypoints
+    kps_good = _create_mock_keypoints()
+    metrics_good = calc.compute_all(kps_good)
+    metrics_good.eye_distance_cm = 60.0
+    features = ml.extract_features(metrics_good)
+
+    assert features.shape == (8,)
+    pred_cls, probs, kyph_score, myop_score = ml.predict(features)
+
+    assert pred_cls == PostureStatus.GOOD
+    assert probs[PostureStatus.GOOD] > 0.3
+    assert 0.0 <= kyph_score <= 1.0
+    assert 0.0 <= myop_score <= 1.0
+
+
+def test_prolonged_risk_accumulation():
+    """Verify prolonged risk accumulates during bad posture and decays upon recovery."""
+    from posture_analyzer.posture_classifier import ProlongedRiskAccumulator
+
+    acc = ProlongedRiskAccumulator(kyphosis_max_exposure_s=40.0, recovery_half_life_s=10.0)
+
+    # Simulate 30 seconds of severe slouched posture
+    t = 0.0
+    for _ in range(30):
+        t += 1.0
+        p_kyph, p_myop, bad_dur, near_dur = acc.update(
+            instant_kyphosis_risk_pct=85.0,
+            instant_myopia_risk_pct=15.0,
+            is_bad_posture=True,
+            is_near_screen=False,
+            timestamp_s=t,
+        )
+
+    # Prolonged kyphosis should have risen significantly (>60%)
+    assert bad_dur >= 29.0
+    assert p_kyph > 60.0
+
+    # Simulate 25 seconds of good upright posture recovery
+    for _ in range(25):
+        t += 1.0
+        p_kyph_rec, _, bad_dur_rec, _ = acc.update(
+            instant_kyphosis_risk_pct=10.0,
+            instant_myopia_risk_pct=10.0,
+            is_bad_posture=False,
+            is_near_screen=False,
+            timestamp_s=t,
+        )
+
+    # Should have recovered significantly
+    assert p_kyph_rec < p_kyph
+    assert bad_dur_rec < bad_dur
+
+
+def test_posture_state_risk_diagnostics_integration():
+    """Verify End-to-End PostureAnalysisEngine produces full risk diagnostics on PostureState."""
+    engine = PostureAnalysisEngine(
+        use_smoothing=False,
+        enable_screen_detection=False,
+        enable_workspace_detection=False,
+    )
+
+    kps = _create_mock_keypoints(slouched=True)
+    state = engine.process_keypoints(kps, timestamp_s=1.0)
+
+    # Verify risk assessment fields are populated
+    assert state.risk_assessment is not None
+    assert state.kyphosis_risk_pct > 0.0
+    assert state.prolonged_kyphosis_risk_pct > 0.0
+    assert state.myopia_risk_pct > 0.0
+    assert state.posture_description != ""
+    assert state.risk_assessment.kyphosis_severity in ["Low", "Moderate", "High", "Severe"]
+    assert state.risk_assessment.myopia_severity in ["Low", "Moderate", "High", "Severe"]
+
+
+def test_posture_hud_risk_rendering():
+    """Verify HUD renders the risk diagnostics and sitting posture badge without crash."""
+    engine = PostureAnalysisEngine(
+        use_smoothing=False,
+        enable_screen_detection=False,
+        enable_workspace_detection=False,
+    )
+
+    kps = _create_mock_keypoints(slouched=True)
+    state = engine.process_keypoints(kps, timestamp_s=10.0)
+
+    frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+    rendered = engine.render_hud(frame=frame, state=state, kps=kps)
+
+    assert rendered is not None
+    assert rendered.shape == (720, 1280, 3)
+    # Background HUD area should have non-zero pixels
+    assert np.count_nonzero(rendered) > 0
+
+
+def test_hpe_model_registry_and_factory():
+    """Verify registry lists all 7 models and factory resolves canonical keys and aliases."""
+    from posture_analyzer import (
+        list_supported_hpe_models,
+        canonical_model_key,
+        SUPPORTED_HPE_MODELS,
+    )
+
+    models = list_supported_hpe_models()
+    assert len(models) == 7
+    keys = [m["key"] for m in models]
+    assert "mediapipe_pose_lite" in keys
+    assert "mediapipe_pose_full" in keys
+    assert "movenet_lightning" in keys
+    assert "movenet_thunder" in keys
+    assert "yolo26n_pose" in keys
+    assert "yolo26m_pose" in keys
+    assert "yolo26x_pose" in keys
+
+    # Verify alias resolution
+    assert canonical_model_key("mp_lite") == "mediapipe_pose_lite"
+    assert canonical_model_key("lightning") == "movenet_lightning"
+    assert canonical_model_key("thunder") == "movenet_thunder"
+    assert canonical_model_key("yolo_n") == "yolo26n_pose"
+    assert canonical_model_key("yolo_m") == "yolo26m_pose"
+    assert canonical_model_key("yolo_x") == "yolo26x_pose"
+
+
+def test_hpe_adapters_unified_conversion():
+    """Verify MoveNet and YOLO adapters convert raw outputs to UnifiedKeypoints correctly."""
+    from posture_analyzer import MoveNetPoseAdapter, YOLOPoseAdapter
+
+    # 1. MoveNet adapter conversion test
+    # Mock MoveNet 17 keypoints array [17, 3] with [y_norm, x_norm, score]
+    mock_movenet_kps = np.zeros((17, 3), dtype=np.float32)
+    # nose, left_shoulder, right_shoulder, left_hip, right_hip
+    mock_movenet_kps[0] = [0.25, 0.50, 0.90]   # nose (y=120px, x=320px)
+    mock_movenet_kps[5] = [0.42, 0.39, 0.85]   # left_shoulder (y=200px, x=250px)
+    mock_movenet_kps[6] = [0.42, 0.61, 0.85]   # right_shoulder (y=200px, x=390px)
+    mock_movenet_kps[11] = [0.83, 0.40, 0.80]  # left_hip
+    mock_movenet_kps[12] = [0.83, 0.60, 0.80]  # right_hip
+
+    # Create MoveNet adapter (without loading weights by testing conversion logic directly)
+    unified_mv = convert_coco_to_unified(
+        mock_movenet_kps,
+        frame_width=640,
+        frame_height=480,
+        is_normalized=True,
+        is_yx_order=True,
+    )
+    assert unified_mv is not None
+    assert unified_mv.format == KeypointFormat.COCO_17
+    assert unified_mv.get("left_shoulder") is not None
+    assert abs(unified_mv.get("left_shoulder").x - (0.39 * 640)) < 1.0
+    assert abs(unified_mv.get("left_shoulder").y - (0.42 * 480)) < 1.0
+
+    # 2. YOLO adapter conversion test
+    # Mock YOLO 17 keypoints in pixel space [17, 3] with [x_px, y_px, conf]
+    mock_yolo_kps = []
+    for i in range(17):
+        mock_yolo_kps.append((320.0 + i, 200.0 + i, 0.90))
+
+    unified_yolo = convert_coco_to_unified(
+        mock_yolo_kps,
+        frame_width=640,
+        frame_height=480,
+        is_normalized=False,
+        is_yx_order=False,
+    )
+    assert unified_yolo is not None
+    assert unified_yolo.format == KeypointFormat.COCO_17
+    assert unified_yolo.get("nose") is not None
+    assert unified_yolo.get("nose").x == 320.0
+
+
+def test_engine_process_frame_with_plug_and_play_adapter():
+    """Verify PostureAnalysisEngine.process_frame handles adapter inference smoothly."""
+    from posture_analyzer import PostureAnalysisEngine, create_hpe_detector
+
+    engine = PostureAnalysisEngine(
+        use_smoothing=False,
+        enable_screen_detection=False,
+        enable_workspace_detection=False,
+    )
+
+    # Initialize MoveNet Lightning adapter (ultra-lightweight TFLite)
+    detector = create_hpe_detector("movenet_lightning")
+    dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+    state, kps, lat_ms = engine.process_frame(dummy_frame, detector, timestamp_s=1.0)
+    assert state is not None
+    assert lat_ms >= 0.0
+    detector.close()
+
+
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
+
+
 

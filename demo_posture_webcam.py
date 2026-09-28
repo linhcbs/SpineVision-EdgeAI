@@ -1,23 +1,36 @@
 #!/usr/bin/env python3
 """
 Real-Time Posture Analysis Webcam Demo.
-SpineVision EdgeAI
+SpineVision EdgeAI — Plug-and-Play HPE Architecture
 
 Features:
-  - Real-time Pose Estimation (MediaPipe Pose Full / Lite)
+  - Plug-and-Play Pose Estimation (Supports ALL 7 HPE Models):
+      1. MediaPipe Pose LITE   (33 3D landmarks, ultra-fast)
+      2. MediaPipe Pose FULL   (33 3D landmarks, high accuracy)
+      3. MoveNet Lightning     (17 COCO keypoints, 192x192, quantized)
+      4. MoveNet Thunder       (17 COCO keypoints, 256x256, quantized)
+      5. YOLO26n-pose (Nano)   (17 COCO keypoints, multi-person edge)
+      6. YOLO26m-pose (Medium) (17 COCO keypoints, balanced multi-person)
+      7. YOLO26x-pose (XLarge) (17 COCO keypoints, maximum accuracy)
   - Biometric Ergonomic Angle Calculation:
-      * Craniovertebral Angle (CVA) — Forward Head / Text Neck
-      * Shoulder Tilt Angle — Lateral Spinal Asymmetry
+      * Craniovertebral Angle (CVA) — Forward Head / Tech Neck
+      * Shoulder Tilt Angle — Lateral Spinal Asymmetry (Left / Right)
       * Trunk / Spine Slump Angle — Slouching / Kyphosis
-      * Eye-to-Screen Distance — Myopia Risk Estimation (Pinhole Model)
+      * Eye-to-Screen Distance — Myopia Risk Estimation
+  - Hybrid Posture Classifier (Rule-based + Lightweight ML):
+      * Posture States: Upright, Leaning Left, Leaning Right, Slouched, Tech Neck, Screen Near
+      * Instantaneous & Prolonged Risk Diagnosis for Kyphosis and Myopia
   - Temporal Smoothing: One-Euro Filter (eliminates micro-jitter)
   - Auto-Calibration: Personalized "Good Posture" Baseline (3 seconds)
-  - Workspace Surface & Screen Detection
-  - Comprehensive Visual HUD (Heads-Up Display)
+  - Multi-Screen & Workspace Surface Detection (YOLO11n + Geometric heuristics)
+  - Comprehensive Visual HUD (Heads-Up Display) with Risk Progress Bars
 
 Controls:
   [C] : Start 3-second Auto-Calibration (sit upright & look at screen)
   [R] : Reset Calibration (return to absolute clinical thresholds)
+  [E] : Reset Prolonged Risk Exposure (simulate taking a break)
+  [M] : Toggle Classifier Mode (Hybrid <-> Rule-Based <-> ML)
+  [T] : Switch/Cycle HPE Model on-the-fly (MediaPipe / MoveNet / YOLO)
   [S] : Toggle One-Euro Landmark Smoothing ON / OFF
   [W] : Toggle Workspace (Desk & Screen) Overlays ON / OFF
   [Q] / [ESC] : Quit
@@ -40,9 +53,12 @@ from posture_analyzer import (
     PostureState,
     PostureStatus,
     AlertLevel,
+    create_hpe_detector,
+    list_supported_hpe_models,
+    SUPPORTED_HPE_MODELS,
+    canonical_model_key,
 )
 from posture_analyzer.config import get_posture_config
-from benchmarks.models.mediapipe_pose_full import MediaPipePoseDetector, MODEL_PATH as DEFAULT_MP_PATH
 from benchmarks.models.drawing_utils import open_camera
 
 try:
@@ -52,46 +68,98 @@ except ImportError:
     _PROCESS = None
 
 
+MODEL_CYCLE_LIST = [
+    "mediapipe_pose_full",
+    "mediapipe_pose_lite",
+    "movenet_lightning",
+    "movenet_thunder",
+    "yolo26n_pose",
+    "yolo26m_pose",
+    "yolo26x_pose",
+]
+
+
 def parse_args():
     cfg = get_posture_config()
     cam_cfg = cfg.get("camera", {})
     class_cfg = cfg.get("classification", {})
 
-    parser = argparse.ArgumentParser(description="SpineVision Real-Time Posture Analysis Demo")
+    parser = argparse.ArgumentParser(
+        description="SpineVision Real-Time Posture Analysis Demo (Plug-and-Play HPE Architecture)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--model", "--hpe-model",
+        type=str,
+        default="mediapipe_pose_full",
+        help=(
+            "Select HPE backbone model. Supported: "
+            + ", ".join(list(SUPPORTED_HPE_MODELS.keys()))
+            + " (or aliases: mp_lite, lightning, thunder, yolo_n, yolo_m, yolo_x)"
+        ),
+    )
+    parser.add_argument("--model-path", type=str, default=None, help="Custom path to model weights file override")
     parser.add_argument("--camera", type=int, default=cam_cfg.get("camera_index", 0), help="Camera index")
-    parser.add_argument("--model-path", type=str, default=DEFAULT_MP_PATH, help="Path to pose_landmarker task file")
     parser.add_argument("--width", type=int, default=cam_cfg.get("width", 1280), help="Camera capture width")
     parser.add_argument("--height", type=int, default=cam_cfg.get("height", 720), help="Camera capture height")
     parser.add_argument("--no-smoothing", action="store_true", help="Disable One-Euro filter smoothing")
     parser.add_argument("--no-workspace", action="store_true", help="Disable workspace overlays")
     parser.add_argument("--sensitivity", type=float, default=class_cfg.get("default_sensitivity", 1.0), help="Classifier sensitivity")
+    parser.add_argument("--device", type=str, default="cpu", help="Inference device for YOLO ('cpu' or 'cuda')")
+    parser.add_argument("--list-models", action="store_true", help="Print all 7 supported HPE models and exit")
     return parser.parse_args()
 
+
+def print_models_table():
+    """Print clean terminal table of all 7 supported HPE models."""
+    print("=" * 80)
+    print(" SPINEVISION EDGEAI — SUPPORTED HUMAN POSE ESTIMATION (HPE) MODELS")
+    print("=" * 80)
+    print(f"{'No.':<4} {'Model Key':<22} {'Keypoints':<11} {'Depth':<8} {'Description'}")
+    print("-" * 80)
+    for i, m in enumerate(list_supported_hpe_models(), 1):
+        depth_str = "3D (z)" if m["has_depth"] else "2D"
+        kps_str = f"{m['keypoints']} pts"
+        print(f"{i:<4} {m['key']:<22} {kps_str:<11} {depth_str:<8} {m['description']}")
+    print("=" * 80)
 
 
 def main():
     cfg = get_posture_config()
     args = parse_args()
 
-    print("=" * 70)
-    print(" SpineVision EdgeAI — Real-Time Ergonomic Posture Analysis")
-    print("=" * 70)
+    if args.list_models:
+        print_models_table()
+        sys.exit(0)
+
+    print("=" * 75)
+    print(" SpineVision EdgeAI — Plug-and-Play Ergonomic Posture Analysis")
+    print("=" * 75)
     print("Controls:")
     print("  [C] : Start Auto-Calibration (sit upright for ~3s)")
-    print("  [R] : Reset Calibration")
+    print("  [R] : Reset Calibration (return to absolute thresholds)")
+    print("  [E] : Reset Prolonged Risk Exposure (simulate taking a break)")
+    print("  [M] : Toggle Classifier Mode (Hybrid / Rule-Based / ML)")
+    print("  [T] : Switch/Cycle HPE Model (MediaPipe <-> MoveNet <-> YOLO)")
     print("  [S] : Toggle One-Euro Smoothing")
     print("  [W] : Toggle Workspace Surface & Screen Overlays")
     print("  [Q] : Quit")
-    print("=" * 70)
+    print("=" * 75)
 
-    # 1. Initialize Pose Detector
-    if not os.path.exists(args.model_path):
-        print(f"[Error] MediaPipe task weight file not found: {args.model_path}")
-        print("Please check the path or run benchmark setup.")
-        sys.exit(1)
-
-    print(f"Loading MediaPipe Pose Landmarker from: {args.model_path}")
-    detector = MediaPipePoseDetector(model_path=args.model_path, num_poses=1)
+    # 1. Initialize HPE Model via Universal Adapter Factory
+    current_model_key = canonical_model_key(args.model)
+    print(f"[HPE Init] Loading model: {current_model_key}...")
+    try:
+        detector = create_hpe_detector(
+            model_name_or_key=current_model_key,
+            weights_path=args.model_path,
+            device=args.device,
+        )
+        print(f"[HPE Init] Successfully initialized: {detector.model_name}")
+    except Exception as e:
+        print(f"[Error] Failed to initialize HPE model '{args.model}': {e}")
+        print("Falling back to MediaPipe Pose Full...")
+        detector = create_hpe_detector("mediapipe_pose_full")
 
     # 2. Initialize Posture Analysis Engine
     engine = PostureAnalysisEngine(
@@ -142,22 +210,18 @@ def main():
             last_timestamp_ms = now_ms
             current_timestamp_ms = now_ms
 
-            # 4. Pose Inference
-            result, latency_ms = detector.infer(frame, timestamp_ms=current_timestamp_ms)
+            # 4. Universal HPE Pose Inference & Conversion
+            raw_result, latency_ms = detector.infer(frame, timestamp_ms=current_timestamp_ms)
+            kps = detector.to_unified(raw_result, frame_width=w, frame_height=h)
 
-            # 5. Posture Analysis
-            if result and result.pose_landmarks and len(result.pose_landmarks) > 0:
-                # Primary subject (first detected person)
-                landmarks = result.pose_landmarks[0]
-
-                # Draw base skeleton with stable visibility threshold (0.45 ignores occluded phantom limbs)
-                detector.draw(frame, result, vis_thresh=0.45, radius_min=3, radius_max=6)
+            # 5. Posture Analysis Pipeline
+            if kps is not None:
+                # Draw model skeleton
+                detector.draw(frame, raw_result)
 
                 # Process through posture analysis engine
-                state, kps = engine.process_mediapipe(
-                    landmarks,
-                    frame_width=w,
-                    frame_height=h,
+                state = engine.process_keypoints(
+                    kps,
                     timestamp_s=time.time(),
                     frame=frame,
                 )
@@ -170,13 +234,13 @@ def main():
                     draw_workspace=draw_workspace,
                 )
             else:
-                # No pose detected: draw a subtle notice
+                # No pose detected in current frame
                 cv2.putText(
                     frame,
-                    "No person detected in frame",
-                    (w // 2 - 160, 40),
+                    f"No person detected ({detector.model_name})",
+                    (w // 2 - 180, 40),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
+                    0.65,
                     (80, 80, 240),
                     2,
                     cv2.LINE_AA,
@@ -189,29 +253,39 @@ def main():
                 fps = 15.0 / (now - t_start)
                 t_start = now
 
-            # Top-left info overlay with RAM consumption
+            # Top-left info overlay with active HPE model & RAM consumption
             ram_mb = _PROCESS.memory_info().rss / (1024.0 * 1024.0) if _PROCESS is not None else 0.0
             cv2.putText(
                 frame,
-                f"FPS: {fps:.1f} | Latency: {latency_ms:.1f}ms | RAM: {ram_mb:.0f}MB",
-                (15, 30),
+                f"HPE: {detector.model_name}",
+                (15, 25),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                (0, 255, 0),
-                2,
+                0.48,
+                (220, 220, 100),
+                1,
                 cv2.LINE_AA,
             )
-
+            cv2.putText(
+                frame,
+                f"FPS: {fps:.1f} | Latency: {latency_ms:.1f}ms | RAM: {ram_mb:.0f}MB",
+                (15, 48),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.48,
+                (0, 255, 0),
+                1,
+                cv2.LINE_AA,
+            )
 
             # Show active status of features
             smoothing_str = "ON (One-Euro)" if engine.use_smoothing else "OFF"
             calib_str = "CALIBRATED" if engine.is_calibrated else "UNCALIBRATED"
+            mode_str = engine.classifier.mode.upper()
             cv2.putText(
                 frame,
-                f"Filter: {smoothing_str} | Base: {calib_str}",
-                (15, 60),
+                f"Filter: {smoothing_str} | Base: {calib_str} | Mode: {mode_str}",
+                (15, 70),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.45,
+                0.42,
                 (200, 200, 200),
                 1,
                 cv2.LINE_AA,
@@ -229,6 +303,26 @@ def main():
             elif key == ord('r') or key == ord('R'):
                 print("[Action] Resetting calibration...")
                 engine.reset_calibration()
+            elif key == ord('e') or key == ord('E'):
+                print("[Action] Resetting prolonged risk exposure counters (break taken)...")
+                engine.classifier.reset_exposure()
+            elif key == ord('m') or key == ord('M'):
+                modes = ["hybrid", "rule_based", "ml"]
+                cur_idx = modes.index(engine.classifier.mode) if engine.classifier.mode in modes else 0
+                engine.classifier.mode = modes[(cur_idx + 1) % len(modes)]
+                print(f"[Action] Posture Classifier mode switched to: {engine.classifier.mode.upper()}")
+            elif key == ord('t') or key == ord('T'):
+                # Cycle through the 7 HPE models on the fly!
+                cur_idx = MODEL_CYCLE_LIST.index(current_model_key) if current_model_key in MODEL_CYCLE_LIST else 0
+                next_key = MODEL_CYCLE_LIST[(cur_idx + 1) % len(MODEL_CYCLE_LIST)]
+                print(f"\n[Action] Switching HPE model from {current_model_key} -> {next_key}...")
+                try:
+                    detector.close()
+                    detector = create_hpe_detector(next_key, device=args.device)
+                    current_model_key = next_key
+                    print(f"[Action] Switched successfully to: {detector.model_name}")
+                except Exception as ex:
+                    print(f"[Error] Could not switch to {next_key}: {ex}")
             elif key == ord('s') or key == ord('S'):
                 engine.use_smoothing = not engine.use_smoothing
                 print(f"[Action] One-Euro Smoothing set to: {engine.use_smoothing}")

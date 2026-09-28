@@ -29,6 +29,8 @@ from .types import (
     NormalizedKeypoint,
     DetectedDevice,
     DeviceType,
+    RiskAssessment,
+    RiskSeverity,
 )
 from .filter_utils import OneEuroFilter, LandmarkSmoother
 from .posture_metrics import PostureMetricsCalculator
@@ -37,6 +39,17 @@ from .calibrator import PostureCalibrator
 from .posture_classifier import PostureClassifier
 from .workspace_detector import WorkspaceDetector
 from .posture_engine import PostureAnalysisEngine
+
+from .hpe_adapter import (
+    BaseHPEAdapter,
+    MediaPipePoseAdapter,
+    MoveNetPoseAdapter,
+    YOLOPoseAdapter,
+    create_hpe_detector,
+    list_supported_hpe_models,
+    SUPPORTED_HPE_MODELS,
+    canonical_model_key,
+)
 
 __all__ = [
     "PostureMetrics",
@@ -50,6 +63,8 @@ __all__ = [
     "NormalizedKeypoint",
     "DetectedDevice",
     "DeviceType",
+    "RiskAssessment",
+    "RiskSeverity",
     "OneEuroFilter",
     "LandmarkSmoother",
     "PostureMetricsCalculator",
@@ -58,5 +73,13 @@ __all__ = [
     "PostureClassifier",
     "WorkspaceDetector",
     "PostureAnalysisEngine",
+    "BaseHPEAdapter",
+    "MediaPipePoseAdapter",
+    "MoveNetPoseAdapter",
+    "YOLOPoseAdapter",
+    "create_hpe_detector",
+    "list_supported_hpe_models",
+    "SUPPORTED_HPE_MODELS",
+    "canonical_model_key",
 ]
 

@@ -187,7 +187,12 @@ class PostureAnalysisEngine:
 
         # 8. Classify posture state (absolute or relative to calibration)
         calibration_data = self.calibrator.calibration if self.calibrator.is_calibrated else None
-        state = self.classifier.classify(metrics, calibration=calibration_data)
+        state = self.classifier.classify(
+            metrics,
+            calibration=calibration_data,
+            kps=kps,
+            timestamp_s=timestamp_s,
+        )
 
         # 9. Enrich state
         state.desk_line_y = desk_y
@@ -196,6 +201,48 @@ class PostureAnalysisEngine:
         state.detected_devices = detected_devices
 
         return state
+
+
+    def process_frame(
+        self,
+        frame: np.ndarray,
+        detector: Any,
+        timestamp_s: Optional[float] = None,
+    ) -> Tuple[PostureState, Optional[UnifiedKeypoints], float]:
+        """
+        Universal Plug-and-Play pipeline: Runs any HPE detector adapter on a video frame
+        and pipes the outputs directly into the Posture Analysis & Risk Evaluation Engine.
+
+        Args:
+            frame: BGR video frame (uint8).
+            detector: Any BaseHPEAdapter instance (MediaPipe, MoveNet, YOLO-Pose, etc.).
+            timestamp_s: Timestamp in seconds.
+
+        Returns:
+            Tuple of (PostureState, UnifiedKeypoints or None, latency_ms).
+        """
+        if timestamp_s is None:
+            timestamp_s = time.time()
+        now_ms = int(timestamp_s * 1000)
+        h, w = frame.shape[:2]
+
+        # 1. Run HPE inference on the plug-and-play detector
+        raw_result, latency_ms = detector.infer(frame, timestamp_ms=now_ms)
+
+        # 2. Convert to model-agnostic UnifiedKeypoints
+        kps = detector.to_unified(raw_result, frame_width=w, frame_height=h)
+
+        if kps is None:
+            state = PostureState(
+                status=PostureStatus.UNKNOWN,
+                confidence=0.0,
+                posture_description="Detecting person...",
+            )
+            return state, None, latency_ms
+
+        # 3. Process keypoints through posture analysis pipeline
+        state = self.process_keypoints(kps, timestamp_s=timestamp_s, frame=frame)
+        return state, kps, latency_ms
 
 
     def process_mediapipe(
@@ -346,7 +393,8 @@ class PostureAnalysisEngine:
         return self.calibrator.calibration
 
     def reset(self):
-        """Reset all stateful components (filters, workspace tracker, calibration)."""
+        """Reset all stateful components (filters, workspace tracker, calibration, risk accumulators)."""
         self.smoother.reset()
         self.workspace_detector.reset()
         self.calibrator.reset()
+        self.classifier.reset_exposure()

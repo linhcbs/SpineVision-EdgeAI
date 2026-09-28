@@ -71,6 +71,8 @@ def _status_color(status: PostureStatus) -> Tuple[int, int, int]:
         PostureStatus.FORWARD_HEAD: COLOR_CRITICAL,
         PostureStatus.SLOUCHED: COLOR_WARNING,
         PostureStatus.SHOULDER_TILTED: COLOR_MILD,
+        PostureStatus.LEANING_LEFT: COLOR_WARNING,
+        PostureStatus.LEANING_RIGHT: COLOR_WARNING,
         PostureStatus.TOO_CLOSE: COLOR_CRITICAL,
         PostureStatus.TOO_CLOSE_DESK: COLOR_CRITICAL,
         PostureStatus.COMBINED: COLOR_CRITICAL,
@@ -88,8 +90,22 @@ def _alert_color(level: AlertLevel) -> Tuple[int, int, int]:
     }.get(level, COLOR_UNKNOWN)
 
 
-def _status_label(status: PostureStatus) -> str:
+def _risk_color(risk_pct: float) -> Tuple[int, int, int]:
+    """Get display color for clinical risk percentage: Green -> Yellow -> Orange -> Red."""
+    if risk_pct < 25.0:
+        return COLOR_GOOD
+    elif risk_pct < 50.0:
+        return COLOR_MILD
+    elif risk_pct < 75.0:
+        return COLOR_WARNING
+    else:
+        return COLOR_CRITICAL
+
+
+def _status_label(status: PostureStatus, desc: str = "") -> str:
     """Get English label for posture status."""
+    if desc:
+        return desc
     labels = get_posture_config().get("visualization_hud", {}).get("status_labels", {})
     return labels.get(status.name, status.name.replace("_", " ").title())
 
@@ -100,7 +116,7 @@ def draw_posture_hud(
     kps: Optional[UnifiedKeypoints] = None,
     is_calibrating: bool = False,
     calib_progress: float = 0.0,
-    panel_width: int = 310,
+    panel_width: int = 330,
     detected_devices: Optional[List[DetectedDevice]] = None,
 ):
     """
@@ -108,7 +124,7 @@ def draw_posture_hud(
     
     Args:
         frame: BGR image (modified in-place).
-        state: Current PostureState with metrics and classification.
+        state: Current PostureState with metrics, classification, and risk assessment.
         kps: Optional UnifiedKeypoints for drawing angle arcs on skeleton.
         is_calibrating: Whether calibration is in progress.
         calib_progress: Calibration progress (0.0 - 1.0).
@@ -126,16 +142,19 @@ def draw_posture_hud(
     if detected_devices is None:
         detected_devices = getattr(state, 'detected_devices', [])
 
-    # Dynamic panel height based on device count
+    # Dynamic panel height based on device count and risk section
     n_dev = len(detected_devices)
-    extra_dev_rows = max(0, n_dev)  # 1 header + n rows
-    panel_height = 385 + extra_dev_rows * 22 + (22 if n_dev > 0 else 0)
+    extra_dev_rows = max(0, n_dev)
+    has_risk = getattr(state, "risk_assessment", None) is not None
+    base_panel_h = 490 if has_risk else 385
+    panel_height = base_panel_h + extra_dev_rows * 20 + (20 if n_dev > 0 else 0)
     if is_calibrating:
         panel_height += 30
+
     # === Semi-transparent background panel ===
     overlay = frame.copy()
     cv2.rectangle(overlay, (panel_x, panel_y), (w - 5, panel_y + panel_height), COLOR_PANEL_BG, -1)
-    cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
+    cv2.addWeighted(overlay, 0.78, frame, 0.22, 0, frame)
 
     y_cursor = panel_y + 22
 
@@ -161,12 +180,13 @@ def draw_posture_hud(
         y_cursor += 30
     else:
         status_color = _status_color(state.status)
-        status_text = _status_label(state.status)
+        desc = getattr(state, "posture_description", "")
+        status_text = _status_label(state.status, desc=desc)
 
         # Status dot & label
         cv2.circle(frame, (panel_x + 16, y_cursor - 5), 6, status_color, -1, cv2.LINE_AA)
         cv2.putText(frame, status_text, (panel_x + 28, y_cursor),
-                    font, 0.48, status_color, 1, cv2.LINE_AA)
+                    font, 0.46, status_color, 1, cv2.LINE_AA)
         if ram_mb > 0:
             cv2.putText(frame, f"RAM: {ram_mb:.0f}MB", (w - 85, y_cursor),
                         font_small, 0.35, COLOR_TEXT_DIM, 1, cv2.LINE_AA)
@@ -183,7 +203,49 @@ def draw_posture_hud(
     # === Divider ===
     y_cursor += 10
     cv2.line(frame, (panel_x + 8, y_cursor), (w - 15, y_cursor), (60, 60, 60), 1)
-    y_cursor += 15
+    y_cursor += 14
+
+    # === Ergonomic Clinical Risk Diagnostics Section ===
+    risk = getattr(state, "risk_assessment", None)
+    if risk is not None:
+        cv2.putText(frame, "CLINICAL RISK ASSESSMENT", (panel_x + 10, y_cursor),
+                    font_small, 0.38, (120, 210, 255), 1, cv2.LINE_AA)
+        y_cursor += 16
+
+        def draw_risk_row(label: str, risk_pct: float, severity: str, dur_s: Optional[float] = None):
+            nonlocal y_cursor
+            color = _risk_color(risk_pct)
+
+            # Label on left
+            cv2.putText(frame, label, (panel_x + 10, y_cursor),
+                        font_small, 0.36, COLOR_TEXT_DIM, 1, cv2.LINE_AA)
+
+            # Value & Severity on right (e.g. "45% [Moderate] (12s)")
+            dur_str = f" ({dur_s:.0f}s)" if dur_s is not None and dur_s >= 2.0 else ""
+            val_text = f"{risk_pct:.0f}% [{severity}]{dur_str}"
+            cv2.putText(frame, val_text, (panel_x + 140, y_cursor),
+                        font_small, 0.38, color, 1, cv2.LINE_AA)
+
+            # Progress bar
+            bar_x1 = panel_x + 10
+            bar_x2 = w - 15
+            bar_y = y_cursor + 4
+            bar_h = 3
+            cv2.rectangle(frame, (bar_x1, bar_y), (bar_x2, bar_y + bar_h), (45, 45, 45), -1)
+            fill_ratio = min(1.0, max(0.0, risk_pct / 100.0))
+            fill_x = int(bar_x1 + (bar_x2 - bar_x1) * fill_ratio)
+            cv2.rectangle(frame, (bar_x1, bar_y), (fill_x, bar_y + bar_h), color, -1)
+            y_cursor += 18
+
+        draw_risk_row("Kyphosis Risk", risk.kyphosis_risk_pct, risk.kyphosis_severity)
+        draw_risk_row("Prolonged Kyph", risk.prolonged_kyphosis_risk_pct, risk.kyphosis_severity, risk.bad_posture_duration_s)
+        draw_risk_row("Myopia Risk", risk.myopia_risk_pct, risk.myopia_severity)
+        draw_risk_row("Prolonged Myop", risk.prolonged_myopia_risk_pct, risk.myopia_severity, risk.near_screen_duration_s)
+
+        # Divider
+        y_cursor += 4
+        cv2.line(frame, (panel_x + 8, y_cursor), (w - 15, y_cursor), (60, 60, 60), 1)
+        y_cursor += 14
 
     # === Metrics Section ===
     metrics = state.metrics
