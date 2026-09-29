@@ -33,10 +33,10 @@ import torch
 import ultralytics
 # Setup local python paths for relative imports
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-MODELS_DIR  = os.path.join(SCRIPT_DIR, "models")
-WEIGHTS_DIR = os.path.join(SCRIPT_DIR, "weights")
-CONFIGS_DIR = os.path.join(SCRIPT_DIR, "configs")
 ROOT_DIR    = os.path.dirname(SCRIPT_DIR)
+MODELS_DIR  = os.path.join(ROOT_DIR, "models", "pipelines")
+WEIGHTS_DIR = os.path.join(ROOT_DIR, "models", "weights")
+CONFIGS_DIR = os.path.join(ROOT_DIR, "configs")
 
 for p in (MODELS_DIR, SCRIPT_DIR, ROOT_DIR):
     if p not in sys.path:
@@ -45,7 +45,7 @@ for p in (MODELS_DIR, SCRIPT_DIR, ROOT_DIR):
 try:
     from drawing_utils import load_config, resolve_weight_path, open_camera, compute_point_style
 except ImportError:
-    from benchmarks.models.drawing_utils import load_config, resolve_weight_path, open_camera, compute_point_style
+    from models.pipelines.drawing_utils import load_config, resolve_weight_path, open_camera, compute_point_style
 
 
 # ==============================================================================

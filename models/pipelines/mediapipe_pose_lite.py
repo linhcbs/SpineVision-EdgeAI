@@ -27,7 +27,7 @@ try:
         COLOR_FPS, COLOR_LAT, COLOR_RAM, COLOR_MODEL
     )
 except ImportError:
-    from benchmarks.models.drawing_utils import (
+    from models.pipelines.drawing_utils import (
         load_config, resolve_weight_path, open_camera, draw_mediapipe_landmarks_3d, draw_hud,
         COLOR_FPS, COLOR_LAT, COLOR_RAM, COLOR_MODEL
     )

@@ -199,7 +199,7 @@ def get_default_config() -> Dict[str, Any]:
         },
         "screen_detection": {
             "enabled": True,
-            "model_path": "benchmarks/weights/yolo11n.pt",
+            "model_path": "models/weights/yolo11n.pt",
             "max_devices": 3,
             "min_confidence": 0.40,
             "iou_threshold": 0.50,

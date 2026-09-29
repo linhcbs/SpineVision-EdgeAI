@@ -1,6 +1,6 @@
 # Báo cáo Đo lường & So sánh Hiệu năng Mô hình Human Pose Estimation
 
-> **Thời gian thực hiện:** `2026-09-25 23:36:56`  
+> **Thời gian thực hiện:** `2026-09-28 23:11:42`  
 > **Tập dữ liệu:** `300` frame benchmark + `20` frame warmup (Live Webcam Stream)
 
 ---
@@ -25,13 +25,13 @@
 
 | Mô hình | **Avg FPS** | **Avg Latency** | P50 (Median) | P95 | P99 | Min Lat | Max Lat | Peak RAM |
 |---|---|---|---|---|---|---|---|---|
-| **MediaPipe Pose LITE (complexity=0)** | **44.0** | **22.7 ms** | 26.16 ms | 29.1 ms | 29.9 ms | 12.4 ms | 31.3 ms | **710 MB** |
-| **MediaPipe Pose FULL (complexity=1)** | **30.3** | **33.0 ms** | 32.89 ms | 34.51 ms | 36.31 ms | 29.6 ms | 43.0 ms | **757 MB** |
-| **MoveNet Lightning** | **119.7** | **8.3 ms** | 8.27 ms | 9.48 ms | 10.73 ms | 7.4 ms | 12.0 ms | **740 MB** |
-| **MoveNet Thunder** | **27.3** | **36.7 ms** | 36.53 ms | 38.3 ms | 39.68 ms | 35.0 ms | 42.9 ms | **793 MB** |
-| **YOLO26n-pose (Nano)** | **16.1** | **62.1 ms** | 62.15 ms | 65.38 ms | 68.3 ms | 53.1 ms | 68.9 ms | **869 MB** |
-| **YOLO26m-pose (Medium)** | **3.3** | **299.3 ms** | 297.32 ms | 328.18 ms | 342.59 ms | 282.8 ms | 344.9 ms | **1016 MB** |
-| **YOLO26x-pose (XLarge)** | **1.3** | **771.5 ms** | 773.76 ms | 795.74 ms | 801.46 ms | 700.4 ms | 886.0 ms | **1292 MB** |
+| **MediaPipe Pose LITE (complexity=0)** | **37.9** | **26.4 ms** | 26.26 ms | 28.72 ms | 30.17 ms | 23.1 ms | 32.1 ms | **712 MB** |
+| **MediaPipe Pose FULL (complexity=1)** | **30.7** | **32.6 ms** | 32.51 ms | 35.06 ms | 36.46 ms | 29.3 ms | 37.5 ms | **761 MB** |
+| **MoveNet Lightning** | **123.3** | **8.1 ms** | 8.03 ms | 9.15 ms | 9.78 ms | 7.3 ms | 10.4 ms | **728 MB** |
+| **MoveNet Thunder** | **27.9** | **35.9 ms** | 35.76 ms | 37.98 ms | 38.84 ms | 33.0 ms | 42.2 ms | **782 MB** |
+| **YOLO26n-pose (Nano)** | **16.9** | **59.3 ms** | 59.26 ms | 63.55 ms | 65.86 ms | 54.0 ms | 72.7 ms | **861 MB** |
+| **YOLO26m-pose (Medium)** | **3.2** | **315.3 ms** | 315.74 ms | 326.35 ms | 334.97 ms | 298.9 ms | 356.0 ms | **996 MB** |
+| **YOLO26x-pose (XLarge)** | **1.2** | **806.0 ms** | 803.82 ms | 856.44 ms | 954.24 ms | 729.7 ms | 982.4 ms | **1271 MB** |
 
 ---
 
@@ -91,4 +91,4 @@
 | **Thiết bị nhúng (Raspberry Pi, Jetson)** | **MediaPipe LITE / MoveNet Lightning** | Tiêu thụ ít RAM, không đòi hỏi GPU mạnh. |
 
 ---
-*Báo cáo được tạo tự động bởi benchmark_runner.py — 2026-09-25 23:36:56*
+*Báo cáo được tạo tự động bởi benchmark_runner.py — 2026-09-28 23:11:42*

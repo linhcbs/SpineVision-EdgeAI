@@ -181,7 +181,7 @@
   },
   "screen_detection": {
     "enabled": true,
-    "model_path": "benchmarks/weights/yolo11n.pt",
+    "model_path": "models/weights/yolo11n.pt",
     "max_devices": 2,
     "min_confidence": 0.10,
     "iou_threshold": 0.30,

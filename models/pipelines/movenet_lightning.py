@@ -1,7 +1,7 @@
 """
-MoveNet Thunder - Single-person pose estimation (High Accuracy)
+MoveNet Lightning - Single-person pose estimation
 Backend: ai-edge-litert 2.2 / tflite-runtime / tensorflow
-Model: movenet_thunder.tflite (uint8 quantized, ~12.6 MB)
+Model: movenet_lightning.tflite (uint8 quantized, ~4.8 MB)
 Confidence-Aware Visualization: Keypoint confidence modulates landmark radius and color intensity.
 """
 
@@ -22,7 +22,7 @@ try:
         COLOR_FPS, COLOR_LAT, COLOR_RAM, COLOR_MODEL, COCO_CONNECTIONS
     )
 except ImportError:
-    from benchmarks.models.drawing_utils import (
+    from models.pipelines.drawing_utils import (
         load_config, resolve_weight_path, open_camera, draw_coco_landmarks, draw_hud,
         COLOR_FPS, COLOR_LAT, COLOR_RAM, COLOR_MODEL, COCO_CONNECTIONS
     )
@@ -46,12 +46,12 @@ except ImportError:
 # HYPERPARAMETERS & CONFIGURATION CONSTANTS (ALL CAPS)
 # ==============================================================================
 CONFIG_FILE_PATH              = os.path.join(os.path.dirname(SCRIPT_DIR), "configs", "pose_models_config.json")
-MODEL_KEY                     = "movenet_thunder"
+MODEL_KEY                     = "movenet_lightning"
 _CFG, _GLOBAL                 = load_config(MODEL_KEY, CONFIG_FILE_PATH)
 
-MODEL_NAME                    = _CFG.get("model_name", "MoveNet Thunder")
-MODEL_PATH                    = resolve_weight_path(_CFG.get("model_file", "movenet_thunder.tflite"))
-INPUT_SIZE                    = _CFG.get("input_size", 256)
+MODEL_NAME                    = _CFG.get("model_name", "MoveNet Lightning")
+MODEL_PATH                    = resolve_weight_path(_CFG.get("model_file", "movenet_lightning.tflite"))
+INPUT_SIZE                    = _CFG.get("input_size", 192)
 SCORE_THRESHOLD               = _CFG.get("score_threshold", 0.3)
 HAS_3D_DEPTH                  = _CFG.get("has_3d_depth", False)
 
@@ -133,7 +133,7 @@ class MoveNetPoseDetector:
 # MAIN WEBCAM INFERENCE RUNNER
 # ==============================================================================
 def main():
-    parser = argparse.ArgumentParser(description="MoveNet Thunder Inference & Webcam Demo")
+    parser = argparse.ArgumentParser(description="MoveNet Lightning Inference & Webcam Demo")
     parser.add_argument("--cam", type=int, default=DEFAULT_CAMERA_INDEX, help="Camera index")
     parser.add_argument("--thresh", type=float, default=SCORE_THRESHOLD, help="Keypoint score threshold")
     args = parser.parse_args()
