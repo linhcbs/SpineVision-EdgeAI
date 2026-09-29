@@ -32,9 +32,9 @@
       "name": "Craniovertebral Angle",
       "abbreviation": "CVA",
       "unit": "deg",
-      "normal_min": 80.0,
-      "mild_min": 70.0,
-      "severe_below": 70.0
+      "normal_min": 50.0,
+      "mild_min": 45.0,
+      "severe_below": 45.0
     },
     "shoulder_tilt": {
       "name": "Shoulder Level Angle",
@@ -55,8 +55,8 @@
       "abbreviation": "Trunk Angle",
       "unit": "deg",
       "normal_max": 10.0,
-      "warning_max": 18.0,
-      "severe_above": 18.0
+      "warning_max": 20.0,
+      "severe_above": 20.0
     },
     "eye_to_screen_distance": {
       "name": "Eye to Screen Distance",
@@ -65,7 +65,7 @@
       "safe_min": 35.0,
       "warning_min": 25.0,
       "danger_below": 25.0,
-      "average_ipd_cm": 6.3,
+      "average_ipd_cm": 6.0,
       "default_focal_length_px": 650.0,
       "z_depth_dampening": 0.3
     },
@@ -73,9 +73,9 @@
       "name": "Eye to Desk Distance",
       "abbreviation": "Eye - Desk",
       "unit": "cm",
-      "safe_min": 35.0,
-      "warning_min": 25.0,
-      "danger_below": 25.0
+      "safe_min": 33.0,
+      "warning_min": 30.0,
+      "danger_below": 30.0
     }
   },
   "view_modes": {

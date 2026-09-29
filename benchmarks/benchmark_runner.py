@@ -584,7 +584,7 @@ def main():
         {
             "type": "yolo",
             "name": "YOLO26n-pose (Nano)",
-            "file": resolve_weight_path("yolo26n-pose.pt"),
+            "file": resolve_weight_path("yolo11n-pose.pt"),
             "input_size": 640,
             "params_m": 2.9, "keypoints": 17, "multi_person": True, "has_3d_depth": False,
             "format": "PyTorch .pt",
@@ -592,7 +592,7 @@ def main():
         {
             "type": "yolo",
             "name": "YOLO26m-pose (Medium)",
-            "file": resolve_weight_path("yolo26m-pose.pt"),
+            "file": resolve_weight_path("yolo11m-pose.pt"),
             "input_size": 640,
             "params_m": 20.3, "keypoints": 17, "multi_person": True, "has_3d_depth": False,
             "format": "PyTorch .pt",
@@ -600,7 +600,7 @@ def main():
         {
             "type": "yolo",
             "name": "YOLO26x-pose (XLarge)",
-            "file": resolve_weight_path("yolo26x-pose.pt"),
+            "file": resolve_weight_path("yolo11x-pose.pt"),
             "input_size": 640,
             "params_m": 56.9, "keypoints": 17, "multi_person": True, "has_3d_depth": False,
             "format": "PyTorch .pt",
